@@ -25,6 +25,10 @@
 Thumbs.db
 *.pem
 
+# opencode config (contains secrets)
+opencode.json
+mcp-supabase/
+
 # debug
 npm-debug.log*
 yarn-debug.log*

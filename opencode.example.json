@@ -1,0 +1,18 @@
+{
+  "$schema": "https://opencode.ai/config.json",
+  "mcp": {
+    "supabase-client": {
+      "type": "local",
+      "command": [
+        "node",
+        "mcp-supabase/dist/index.js",
+        "--url", "https://supabase.client.com",
+        "--anon-key", "<ANON_KEY>",
+        "--service-key", "<SERVICE_ROLE_KEY>",
+        "--db-url", "postgresql://supabase_admin:<DB_PASS>@<IP_VPS>:5433/postgres",
+        "--jwt-secret", "<JWT_SECRET>"
+      ],
+      "enabled": true
+    }
+  }
+}
