@@ -256,3 +256,83 @@ curl -s -X POST "https://supabase.client.com/auth/v1/admin/users" \
 | SUPABASE_URL | `https://supabase.client.com` |
 | DB connection string | `postgresql://supabase_admin:<PASS>@<IP>:5433/postgres` |
 | Mot de passe admin Ycode | Généré à l'étape 8 |
+
+---
+
+## Bauhem — Contexte spécifique
+
+### VPS actuel
+- **IP** : `51.222.143.231` (Telus Montréal, pas OVH)
+- **Supabase** via Docker, Kong API sur port 8000
+- **Domaine** : `https://supabase.bauhem.com`
+
+### Problème connu : PostgreSQL inaccessible en direct
+
+Le port **5432** est intercepté par **supavisor** (proxy Supabase).
+- La connexion TCP aboutit mais le serveur n'envoie aucune réponse PostgreSQL
+- L'API REST (Kong, port 8000) fonctionne ✅
+- Solution : **SSH tunnel** pour contourner le proxy
+
+```bash
+# Établir le tunnel
+ssh -L 5433:172.18.0.4:5432 root@51.222.143.231 -N
+
+# Modifier .env après tunnel
+SUPABASE_CONNECTION_URL=postgresql://supabase_admin:f6d2be7bd1d91c6c8d3d150e79591d85@localhost:5433/postgres
+```
+
+### Développement local
+- Serveur : `http://localhost:3002` (`npm run dev`)
+- Le serveur utilise **Knex** (PG direct) + **Supabase REST API** (via `getSupabaseAdmin`)
+- Certaines routes Knex échouent sans tunnel (ex: `getItemsSortedByField` → "Tenant or user not found")
+- Les routes utilisant `getSupabaseAdmin()` (REST API) fonctionnent sans tunnel
+
+### Credentials locaux (`.env`)
+
+```
+SUPABASE_PUBLISHABLE_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+SUPABASE_SECRET_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+SUPABASE_CONNECTION_URL=postgresql://supabase_admin:f6d2be7bd1d91c6c8d3d150e79591d85@51.222.143.231:5432/postgres
+SUPABASE_DB_PASSWORD=f6d2be7bd1d91c6c8d3d150e79591d85
+SUPABASE_URL=http://51.222.143.231:8000
+```
+
+### Design System Bauhem
+- **Font** : Inter (Google Font)
+- **Couleurs** : `#000000`, `#ffffff`, `#d0311e`, `#eae9e6`, `#676767`, `#171717`
+
+### Locales
+| Langue | ID | Code | Défaut |
+|--------|----|------|--------|
+| FR | `99990e19-dfd1-44f4-8a7d-e22d89305e3f` | `fr` | ✅ |
+| EN | `a28a2581-def2-4a6f-8f2e-478f61143f0d` | `en` | ❌ |
+
+### Collection Pages (CMS)
+- **16 items** : 6 top-level (Accueil, À propos, Expertise, Réalisations, Contact, Blog) + 10 enfants
+
+| Field ID | Name | Type |
+|----------|------|------|
+| `6f1d7113-...` | Title | text |
+| `e2909f40-...` | Slug | text |
+| `2530aa30-...` | Order | number |
+| `de1182dd-...` | Parent Page | reference (self) |
+
+### Navigation (Composant)
+- **Component ID** : `71cb79f1-8ed8-4e1f-bc3e-309f5e158475`
+- **Collection layer** `lyr-mp9x7e4aylumk5` : Pages, filtre `parent_page IS EMPTY`, sort `manual`
+- **Template item** : `div.item-wrapper` → text Title + Children Dropdown `lyr-mp9xho98femm6h`
+- **CSS dropdown** : hover + `:focus-within` (bouton invisible overlay pour mobile)
+- **Limitation API MCP** : ne peut pas configurer les filtres dynamiques `current item` (lasso ✨ dans le builder) ni les liens dynamiques via Slug
+
+### Commandes utiles
+
+```bash
+# Dev serveur
+npm run dev
+
+# Tunnel SSH (quand la DB directe est nécessaire)
+ssh -L 5433:172.18.0.4:5432 root@51.222.143.231 -N
+
+# Logs serveur
+tail -f /tmp/ycode-server.log
+```

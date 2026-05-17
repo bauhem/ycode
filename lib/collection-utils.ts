@@ -250,7 +250,6 @@ export function getInverseReferenceFields(
   const collectionsMap = new Map(allCollections.map(c => [c.id, c]));
 
   for (const [collectionId, fields] of Object.entries(allFields)) {
-    if (collectionId === targetCollectionId) continue;
     const collection = collectionsMap.get(collectionId);
     if (!collection) continue;
 
