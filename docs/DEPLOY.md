@@ -1,15 +1,38 @@
 # Guide de déploiement client
 
-## Architecture
+## Architecture (Option A — 1 VPS par client)
 
-- **Ycode (admin)** → Netlify (HTTPS)
-- **Supabase (base de données)** → VPS OVH (HTTPS via Let's Encrypt)
-- **Domaine** → Netlify DNS
+```
+┌──────────────────────┐   ┌──────────────────────────────┐
+│  admin.bauhem.com    │   │  client.com                  │
+│  (Netlify - agence)  │   │  (Netlify - site client)     │
+│  Dashboard clients   │   │                               │
+└──────────────────────┘   └──────────────────────────────┘
+         │                            │
+         ▼                            ▼
+┌──────────────────────┐   ┌──────────────────────────────┐
+│  supabase.client.com  │   │  supabase.client2.com        │
+│  (VPS OVH - Client 1) │   │  (VPS OVH - Client 2)       │
+│  Supabase + DB        │   │  Supabase + DB               │
+└──────────────────────┘   └──────────────────────────────┘
+```
+
+Chaque client a :
+- **1 VPS OVH dédié** → Supabase + PostgreSQL
+- **1 site Netlify** → Ycode builder (fork du repo)
+- **1 domaine admin** → `admin.client.com`
+- **1 domaine Supabase** → `supabase.client.com`
+- **Total revient : ~$10 CAD/mois**
+- **Prix client : $49 CAD/mois** → marge ~$39 CAD/mois
+
+L'admin agence (`admin.bauhem.com`) est un site statique / hub vers chaque client.
+
+---
 
 ## 1. Provision VPS OVH
 
 Créer un VPS OVH (Canada) :
-- Modèle : **VPS-1** (4 vCPU, 8 GB RAM)
+- Modèle : **VPS-1** (4 vCPU, 8 GB RAM, 75 GB SSD)
 - OS : **Ubuntu 24.04**
 - Localisation : **Beauharnois (BHS)**
 
@@ -20,17 +43,12 @@ Noter l'IP du VPS.
 ```bash
 ssh root@<IP_DU_VPS>
 
-# Mise à jour système
 apt update && apt upgrade -y
-
-# Installer Docker + Docker Compose
 apt install -y docker.io docker-compose-v2
 
-# Créer utilisateur non-root
 adduser ubuntu
 usermod -aG docker ubuntu
 
-# Activer le port 80 (Let's Encrypt)
 ufw allow 80
 ufw allow 443
 ufw allow 22
@@ -42,88 +60,69 @@ ufw enable
 ```bash
 ssh ubuntu@<IP_DU_VPS>
 
-# Cloner Supabase
 git clone --depth 1 https://github.com/supabase/supabase ~/supabase
 cd ~/supabase/docker
-
-# Copier .env et générer les clés
 cp .env.example .env
-cp .env.example .env
-```
 
-Éditer `.env` et configurer les valeurs de base :
-```
-POSTGRES_PASSWORD=<mot_de_passe_fort>
-JWT_SECRET=<secret_fort>
-SITE_URL=http://<IP_DU_VPS>:8000
-API_EXTERNAL_URL=http://<IP_DU_VPS>:8000
-```
+# Éditer les valeurs de base dans .env :
+#   POSTGRES_PASSWORD=<mot_de_passe_fort>
+#   JWT_SECRET=<secret_fort>
+#   SITE_URL=http://<IP_DU_VPS>:8000
+#   API_EXTERNAL_URL=http://<IP_DU_VPS>:8000
 
-```bash
-# Générer les clés API
 ./generate-keys.sh
-
-# Démarrer Supabase
 docker compose up -d
-
-# Attendre la santé (30s)
-docker compose ps
 ```
 
-## 4. Appliquer les migrations Ycode
+## 4. Exposer PostgreSQL (port 5433)
 
-```bash
-# Copier le dossier database depuis le repo Ycode
-# Depuis la machine locale :
-cd /chemin/vers/ycode
-rsync -avz database/migrations/ ubuntu@<IP_VPS>:~/migrations/
-
-# Ou depuis le VPS, cloner le fork Ycode :
-git clone https://github.com/<org>/ycode.git ~/ycode
-
-# Exécuter les migrations via l'API Supabase Studio
-# Ou manuellement via psql :
-PGPASSWORD=<POSTGRES_PASSWORD> psql -h localhost -p 5433 \
-  -U supabase_admin -d postgres -f migration.sql
-```
-
-## 5. Exposer PostgreSQL (port 5433)
-
-Éditer `~/supabase/docker/docker-compose.yml` :
+Ajouter dans `~/supabase/docker/docker-compose.yml`, section `db:` :
 
 ```yaml
   db:
     container_name: supabase-db
     ports:
       - "5433:5432"
-    # ... reste identique
 ```
 
 ```bash
 docker compose up -d db
 ```
 
-## 6. Configurer le domaine + SSL
+## 5. Appliquer les migrations Ycode
 
-### 6.1 DNS (Netlify)
+```bash
+# Depuis la machine locale
+cd /chemin/vers/ycode
+rsync -avz database/migrations/ ubuntu@<IP_VPS>:~/migrations/
 
-Dans la console DNS Netlify, ajouter :
+# Sur le VPS
+for f in ~/migrations/*.sql; do
+  echo "Applying $f..."
+  PGPASSWORD=<POSTGRES_PASSWORD> psql -h localhost -p 5433 \
+    -U supabase_admin -d postgres -f "$f"
+done
+```
+
+## 6. Configurer le domaine + SSL (VPS)
+
+### 6.1 Ajouter le DNS
+
+Dans Netlify DNS, ajouter :
 
 | Name | Type | Value |
 |------|------|-------|
-| `supabase.<client>` | A | `<IP_DU_VPS>` |
+| `supabase.client.com` | A | `<IP_DU_VPS>` |
 
-### 6.2 Nginx + Let's Encrypt (sur le VPS)
+### 6.2 Nginx + Let's Encrypt
 
 ```bash
-# Installer Nginx + Certbot
 sudo apt install -y nginx certbot python3-certbot-nginx
 
-# Créer la config Nginx
 sudo tee /etc/nginx/sites-available/supabase << EOF
 server {
     listen 80;
-    server_name supabase.<client>.com;
+    server_name supabase.client.com;
 
     location / {
         proxy_pass http://localhost:8000;
@@ -139,51 +138,44 @@ server {
 }
 EOF
 
-# Activer le site
 sudo ln -s /etc/nginx/sites-available/supabase /etc/nginx/sites-enabled/
 sudo nginx -t && sudo systemctl reload nginx
 
-# Obtenir le certificat SSL
-sudo certbot --nginx -d supabase.<client>.com \
-  --non-interactive --agree-tos --email admin@<client>.com
+sudo certbot --nginx -d supabase.client.com \
+  --non-interactive --agree-tos --email admin@bauhem.com
 
-# Vérifier le renouvellement automatique
 sudo certbot renew --dry-run
 ```
 
-### 6.3 Mettre à jour Supabase
+### 6.3 Mettre à jour Supabase avec HTTPS
 
 ```bash
 cd ~/supabase/docker
+sed -i "s|SITE_URL=http://.*|SITE_URL=https://supabase.client.com|" .env
+sed -i "s|API_EXTERNAL_URL=http://.*|API_EXTERNAL_URL=https://supabase.client.com|" .env
+sed -i "s|SUPABASE_PUBLIC_URL=http://.*|SUPABASE_PUBLIC_URL=https://supabase.client.com|" .env
+echo "ADDITIONAL_REDIRECT_URLS=https://admin.client.com" >> .env
 
-# Remplacer les URLs HTTP par HTTPS
-sed -i "s|SITE_URL=http://.*|SITE_URL=https://supabase.<client>.com|" .env
-sed -i "s|API_EXTERNAL_URL=http://.*|API_EXTERNAL_URL=https://supabase.<client>.com|" .env
-sed -i "s|SUPABASE_PUBLIC_URL=http://.*|SUPABASE_PUBLIC_URL=https://supabase.<client>.com|" .env
-
-# Redémarrer le stack
 docker compose down && docker compose up -d
 ```
 
-## 7. Configurer Ycode sur Netlify
+## 7. Déployer Ycode sur Netlify
 
-### 7.1 Forker Ycode
+### 7.1 Créer le fork
 
-1. Forker `ycode/ycode` sous l'org GitHub de l'agence
-2. Cloner localement
+1. Aller sur https://github.com/bauhem/ycode
+2. Cliquer **Fork** → **Create a new fork**
+3. Sélectionner l'organisation **bauhem**
+4. Renommer en `ycode-client` (optionnel)
 
-### 7.2 Créer le site Netlify
-
-```bash
-# Lier et déployer
-npx netlify-cli sites:create --name "<client>-ycode" --team "<team>"
-npx netlify-cli deploy --prod --build
-```
-
-### 7.3 Configurer les variables d'environnement
+### 7.2 Configurer sur Netlify
 
 ```bash
-npx netlify-cli env:set SUPABASE_URL "https://supabase.<client>.com"
+# Créer le site Netlify
+npx netlify-cli sites:create --name "client-ycode" --team "Live-Bauhem"
+
+# Définir les variables d'environnement
+npx netlify-cli env:set SUPABASE_URL "https://supabase.client.com"
 npx netlify-cli env:set SUPABASE_ANON_KEY "<ANON_KEY>"
 npx netlify-cli env:set SUPABASE_SERVICE_ROLE_KEY "<SERVICE_ROLE_KEY>"
 npx netlify-cli env:set SUPABASE_CONNECTION_URL "postgresql://supabase_admin:<DB_PASS>@<IP_VPS>:5433/postgres"
@@ -192,54 +184,75 @@ npx netlify-cli env:set JWT_SECRET "<JWT_SECRET>"
 npx netlify-cli env:set PAGE_AUTH_SECRET "<secret_random>"
 ```
 
-### 7.4 Domaine personnalisé
+### 7.3 Lier GitHub + déployer
 
 Dans Netlify Dashboard :
-1. **Site settings → Domain management → Custom domains**
-2. Ajouter `admin.<client>.com`
-3. Netlify configurera le DNS automatiquement
+1. **Site settings → Build & deploy → Link to GitHub**
+2. Sélectionner le fork fraîchement créé
+3. Le build se lance automatiquement
 
-Ou manuellement dans Netlify DNS :
+### 7.4 Domaine personnalisé du Ycode admin
+
+Ajouter un CNAME dans Netlify DNS :
 
 | Name | Type | Value |
 |------|------|-------|
-| `admin` | CNAME | `<client>-ycode.netlify.app` |
+| `admin` | CNAME | `client-ycode.netlify.app` |
 
-### 7.5 Connecter GitHub et déployer
+Puis dans Netlify Dashboard :
+1. **Site settings → Domain management → Custom domains**
+2. **Add a domain** → `admin.client.com`
 
-1. Dans Netlify Dashboard : **Site settings → Build & deploy → Link to GitHub**
-2. Sélectionner le fork
-3. Le build se lance automatiquement
+Le SSL sera automatique (Let's Encrypt).
 
-## 8. Créer le compte admin
+## 8. Créer le compte admin client
 
 ```bash
-# Récupérer les clés depuis supabase/docker/.env
 ANON_KEY=<ANON_KEY>
 SERVICE_ROLE_KEY=<SERVICE_ROLE_KEY>
 
-# Créer l'utilisateur admin
-curl -s -X POST "https://supabase.<client>.com/auth/v1/admin/users" \
+PASSWORD=$(openssl rand -base64 12 | tr -d /=+ | cut -c1-16)
+echo "Password: $PASSWORD"
+
+curl -s -X POST "https://supabase.client.com/auth/v1/admin/users" \
   -H "apikey: $ANON_KEY" \
   -H "Authorization: Bearer $SERVICE_ROLE_KEY" \
   -H "Content-Type: application/json" \
-  -d '{"email":"admin@<client>.com","password":"<mot_de_passe>","email_confirm":true}'
+  -d "{\"email\":\"admin@client.com\",\"password\":\"$PASSWORD\",\"email_confirm\":true}"
 ```
 
 ## 9. Vérification
 
-- `https://admin.<client>.com/ycode` → connexion admin
-- `https://supabase.<client>.com` → Supabase Studio
-- `https://supabase.<client>.com/rest/v1/` → API (HTTP 200 avec apikey)
+- **Admin Ycode :** `https://admin.client.com/ycode`
+- **Supabase Studio :** `https://supabase.client.com`
+- **API Supabase :** `https://supabase.client.com/rest/v1/`
 
-## Variables sensibles à stocker
+## Checklist par client
+
+- [ ] VPS OVH créé (VPS-1, Ubuntu 24.04, BHS)
+- [ ] Docker installé
+- [ ] Supabase installé et en santé
+- [ ] Port 5433 exposé (DB directe)
+- [ ] Migrations Ycode appliquées
+- [ ] DNS : `supabase.client.com` → IP du VPS
+- [ ] Nginx + Let's Encrypt (HTTPS)
+- [ ] Domaine `admin.client.com` → Netlify DNS
+- [ ] Fork Ycode créé dans bauhem/
+- [ ] Site Netlify créé
+- [ ] Env vars configurées sur Netlify
+- [ ] Build Netlify réussi
+- [ ] Compte admin créé
+- [ ] Connexion fonctionnelle
+
+## Variables à stocker (coffre client)
 
 | Variable | Source |
 |----------|--------|
+| IP du VPS | Console OVH |
 | POSTGRES_PASSWORD | `supabase/docker/.env` |
 | JWT_SECRET | `supabase/docker/.env` |
 | ANON_KEY | `supabase/docker/.env` |
 | SERVICE_ROLE_KEY | `supabase/docker/.env` |
-| SUPABASE_URL | `https://supabase.<client>.com` |
-| DB connection string | `postgresql://supabase_admin:<DB_PASS>@<IP>:5433/postgres` |
-| IP du VPS | Console OVH |
+| SUPABASE_URL | `https://supabase.client.com` |
+| DB connection string | `postgresql://supabase_admin:<PASS>@<IP>:5433/postgres` |
+| Mot de passe admin Ycode | Généré à l'étape 8 |
