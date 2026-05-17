@@ -16,6 +16,7 @@ import type { SupabaseConfig } from '@/types';
 
 const ENV_FILE = path.join(process.cwd(), '.env');
 const IS_VERCEL = process.env.VERCEL === '1';
+const IS_NETLIFY = process.env.NETLIFY === 'true';
 
 /**
  * Read Supabase config from environment variables.
@@ -61,15 +62,6 @@ export async function get<T = unknown>(key: string): Promise<T | null> {
  * On Vercel, throws — env vars must be set via the dashboard.
  */
 export async function set(key: string, value: unknown): Promise<void> {
-  if (IS_VERCEL) {
-    throw new Error(
-      'Cannot write to file system on Vercel. Please set environment variables instead:\n' +
-      '1. Go to Vercel Dashboard → Project Settings → Environment Variables\n' +
-      '2. Add: SUPABASE_PUBLISHABLE_KEY, SUPABASE_SECRET_KEY, SUPABASE_CONNECTION_URL, SUPABASE_DB_PASSWORD (and SUPABASE_URL for self-hosted)\n' +
-      '3. Redeploy your application'
-    );
-  }
-
   if (key === 'supabase_config') {
     const config = value as SupabaseConfig;
 
@@ -84,6 +76,24 @@ export async function set(key: string, value: unknown): Promise<void> {
       process.env.SUPABASE_URL = config.supabaseUrl;
     } else {
       delete process.env.SUPABASE_URL;
+    }
+
+    if (IS_VERCEL) {
+      throw new Error(
+        'Cannot write to file system on Vercel. Please set environment variables instead:\n' +
+        '1. Go to Vercel Dashboard → Project Settings → Environment Variables\n' +
+        '2. Add: SUPABASE_PUBLISHABLE_KEY, SUPABASE_SECRET_KEY, SUPABASE_CONNECTION_URL, SUPABASE_DB_PASSWORD (and SUPABASE_URL for self-hosted)\n' +
+        '3. Redeploy your application'
+      );
+    }
+
+    if (IS_NETLIFY) {
+      throw new Error(
+        'Cannot write to file system on Netlify. Please set environment variables instead:\n' +
+        '1. Go to Netlify Dashboard → Site Settings → Environment Variables\n' +
+        '2. Add: SUPABASE_PUBLISHABLE_KEY, SUPABASE_SECRET_KEY, SUPABASE_CONNECTION_URL, SUPABASE_DB_PASSWORD (and SUPABASE_URL for self-hosted)\n' +
+        '3. Redeploy your application'
+      );
     }
 
     // Persist to .env so credentials survive a dev server restart
