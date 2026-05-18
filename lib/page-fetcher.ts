@@ -1262,13 +1262,15 @@ async function injectCollectionData(
   // Assign all resolved variables
   updates.variables = resolvedVars as Layer['variables'];
 
-  // Recursively process children, but SKIP collection layers
-  // Collection layers will be processed by resolveCollectionLayers with their own item data
+  // Recursively process children, but SKIP collection layers and already-injected
+  // collection item clones from nested collection resolution. Cloned items from
+  // resolveCollectionLayers have _collectionItemValues set and must not be
+  // re-injected with a parent's enhancedValues (which would overwrite their
+  // pre-resolved variables like _resolvedValue with wrong values).
   if (layer.children) {
     const resolvedChildren = await Promise.all(
       layer.children.map(child => {
-        // Skip collection layers - they'll be processed separately with correct per-item data
-        if (child.variables?.collection?.id) {
+        if (child.variables?.collection?.id || child._collectionItemValues) {
           return Promise.resolve(child);
         }
         return injectCollectionData(child, enhancedValues, fields, isPublished, layerDataMap, rawItemValues, timezone);
