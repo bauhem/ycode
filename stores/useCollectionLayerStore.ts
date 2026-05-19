@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import { collectionsApi } from '@/lib/api';
 import { MULTI_ASSET_COLLECTION_ID } from '@/lib/collection-field-utils';
+import { PAGE_NAVIGATION_COLLECTION_ID } from '@/lib/page-navigation';
 import type { CollectionItemWithValues, CollectionPaginationMeta } from '@/types';
 
 /**
@@ -149,9 +150,9 @@ export const useCollectionLayerStore = create<CollectionLayerStore>((set, get) =
   ) => {
     const { loading, layerConfig } = get();
 
-    // Skip multi-asset virtual collections. They are resolved locally and have
+    // Skip multi-asset and page navigation virtual collections. They are resolved locally and have
     // no real backing collection endpoint.
-    if (collectionId === MULTI_ASSET_COLLECTION_ID) {
+    if (collectionId === MULTI_ASSET_COLLECTION_ID || collectionId === PAGE_NAVIGATION_COLLECTION_ID) {
       return;
     }
 

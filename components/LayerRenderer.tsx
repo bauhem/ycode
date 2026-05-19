@@ -1294,8 +1294,12 @@ const LayerItemImpl: React.FC<{
         return ids.includes(parentId);
       });
     } else if (!sourceFieldId) {
-      // Multi-asset without a selected field has no items to render
-      items = sourceFieldType === 'multi_asset' ? [] : allCollectionItems;
+      if (collectionId === PAGE_NAVIGATION_COLLECTION_ID) {
+        items = itemsByCollectionId[PAGE_NAVIGATION_COLLECTION_ID] || [];
+      } else {
+        // Multi-asset without a selected field has no items to render
+        items = sourceFieldType === 'multi_asset' ? [] : allCollectionItems;
+      }
     } else {
       // Get the reference field value using source-aware resolution
       const refValue = resolveFieldFromSources(sourceFieldId, undefined, collectionLayerData, pageCollectionItemData);
@@ -1341,7 +1345,7 @@ const LayerItemImpl: React.FC<{
     }
 
     return items;
-  }, [collectionId, allCollectionItems, sourceFieldId, sourceFieldType, sourceFieldSource, collectionLayerData, pageCollectionItemData, collectionLayerItemId, pageCollectionItemId, getAsset, collectionVariable?.filters, isEditMode]);
+  }, [collectionId, allCollectionItems, sourceFieldId, sourceFieldType, sourceFieldSource, collectionLayerData, pageCollectionItemData, collectionLayerItemId, pageCollectionItemId, getAsset, collectionVariable?.filters, isEditMode, itemsByCollectionId]);
 
   const optionsSourceSort = layer.settings?.optionsSource;
 

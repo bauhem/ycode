@@ -57,6 +57,7 @@ import { useLiveLayerUpdates } from '@/hooks/use-live-layer-updates';
 import { useLivePageUpdates } from '@/hooks/use-live-page-updates';
 import { useLiveComponentUpdates } from '@/hooks/use-live-component-updates';
 import { useLiveLayerStyleUpdates } from '@/hooks/use-live-layer-style-updates';
+import { useSyncPageNavigation } from '@/hooks/use-sync-page-navigation';
 
 // 4. Stores
 import { useAuthStore } from '@/stores/useAuthStore';
@@ -194,6 +195,9 @@ export default function YCodeBuilder({ children }: YCodeBuilderProps = {} as YCo
   // Component and layer style sync hooks
   const liveComponentUpdates = useLiveComponentUpdates();
   const liveLayerStyleUpdates = useLiveLayerStyleUpdates();
+
+  // Sync virtual page navigation items with pages and folders state
+  useSyncPageNavigation();
 
   // Collaboration presence - set current user for syncing
   const setCurrentCollaborationUser = useCollaborationPresenceStore((state) => state.setCurrentUser);
