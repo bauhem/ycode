@@ -1,0 +1,166 @@
+- generic [active] [ref=e1]:
+  - main [ref=e2]:
+    - generic [ref=e7]:
+      - paragraph [ref=e9]: bauhem
+      - generic [ref=e10]:
+        - link "Services" [ref=e13] [cursor=pointer]:
+          - /url: /services
+          - paragraph [ref=e14]: Services
+        - link "Solutions" [ref=e17] [cursor=pointer]:
+          - /url: /solutions
+          - paragraph [ref=e18]: Solutions
+        - link "Contact" [ref=e21] [cursor=pointer]:
+          - /url: /contact
+          - paragraph [ref=e22]: Contact
+        - link "Blog" [ref=e25] [cursor=pointer]:
+          - /url: /blog
+          - paragraph [ref=e26]: Blog
+        - link "À propos" [ref=e29] [cursor=pointer]:
+          - /url: /a-propos
+          - paragraph [ref=e30]: À propos
+        - link "Réalisations" [ref=e33] [cursor=pointer]:
+          - /url: /realisations
+          - paragraph [ref=e34]: Réalisations
+        - generic [ref=e35]:
+          - generic [ref=e36]: Français
+          - img [ref=e38]
+          - combobox "Select language" [ref=e40] [cursor=pointer]:
+            - option "English"
+            - option "Français" [selected]
+        - button "Analyser mon site" [ref=e41]
+    - generic [ref=e45]:
+      - paragraph [ref=e46]: SYSTÈME
+      - heading "Le design seul ne suffit plus" [level=1] [ref=e47]
+      - paragraph [ref=e48]: Nous construisons des systèmes structurés qui transforment votre présence digitale en un écosystème performant, optimisé pour l'IA et les moteurs de recherche.
+      - generic [ref=e49]:
+        - button "Analyser mon site" [ref=e50]
+        - button "Nos services" [ref=e51]
+    - generic [ref=e54]:
+      - generic [ref=e55]:
+        - generic [ref=e56]:
+          - paragraph [ref=e57]: Solutions
+          - heading "Nous construisons des systèmes structurés qui performent" [level=2] [ref=e58]
+          - paragraph [ref=e59]: La plupart des sites et produits numériques échouent par manque de structure, de clarté et de fondation solide. Nous concevons des systèmes plus faciles à comprendre, à faire évoluer et à améliorer dans le temps.
+          - button "Découvrir nos solutions" [ref=e60]:
+            - generic [ref=e61]: Découvrir nos solutions
+        - generic [ref=e63]:
+          - generic [ref=e64]:
+            - paragraph [ref=e66]: Systèmes Webflow
+            - paragraph [ref=e67]: Sites performants, propres et scalables construits sur Webflow — le CMS le plus flexible au monde.
+          - generic [ref=e68]:
+            - paragraph [ref=e70]: Marque et Contenu
+            - paragraph [ref=e71]: Stratégie de marque claire, architecture de site optimisée et contenu conçu pour convertir, tout en répondant aux exigences des moteurs de recherche et de l'IA.
+          - generic [ref=e72]:
+            - paragraph [ref=e74]: SEO & Découvrabilité IA
+            - paragraph [ref=e75]: Optimisation pour les moteurs de recherche traditionnels et l'IA générative (AEO, Generative Engine Optimization).
+          - generic [ref=e76]:
+            - heading "IA et Automatisation" [level=1] [ref=e77]
+            - paragraph [ref=e78]: Automatisation des processus, chatbots intelligents et pipelines IA pour accélérer votre croissance.
+      - separator [ref=e79]
+    - generic [ref=e82]:
+      - generic [ref=e83]:
+        - generic [ref=e84]:
+          - paragraph [ref=e85]: 100+
+          - heading "Un site web n'est pas un design. C'est un système." [level=1] [ref=e86]
+          - paragraph [ref=e87]: Un site performant repose sur une structure claire, pas seulement sur le visuel. Il doit être lisible par les utilisateurs, compris par les moteurs de recherche et interprété par les systèmes d'IA.
+        - paragraph [ref=e89]: Parlons de votre projet
+      - generic [ref=e90]:
+        - paragraph [ref=e92]: CONÇU POUR ÊTRE DÉCOUVERT
+        - generic [ref=e93]:
+          - heading "Comprendre, pas seulement voir." [level=1] [ref=e94]
+          - paragraph [ref=e95]: "99% du travail est invisible. Ce qui fait la différence, c'est ce qui se cache derrière l'interface : une architecture claire, un code structuré, une stratégie de contenu pensée pour l'utilisateur et l'IA."
+    - generic [ref=e100]:
+      - generic [ref=e101]:
+        - paragraph [ref=e102]: Qualité
+        - paragraph [ref=e103]: Rigueur
+        - paragraph [ref=e104]: Évolution
+        - paragraph [ref=e105]: Efficacité
+      - paragraph [ref=e106]: Chaque projet mérite une fondation solide et une exécution sans compromis. Nous combinons expertise technique et vision créative pour des résultats qui dépassent les attentes.
+      - paragraph [ref=e108]: Discutons de vos enjeux
+    - generic [ref=e111]:
+      - paragraph [ref=e112]: SOLUTIONS
+      - heading "Des talents au service du progrès." [level=1] [ref=e113]
+      - paragraph [ref=e114]: Derrière chaque solution se trouve une équipe dédiée d'ingénieurs, de designers et de chefs de projet qui combinent expertise et passion.
+    - generic [ref=e117]:
+      - paragraph [ref=e118]: Des résultats concrets. Un impact réel.
+      - generic [ref=e119]:
+        - generic [ref=e120]:
+          - generic [ref=e121]:
+            - heading "Slide 1" [level=1] [ref=e122]
+            - paragraph [ref=e123]: Add your slogan here
+          - generic [ref=e124]:
+            - heading "Slide 2" [level=1] [ref=e125]
+            - paragraph [ref=e126]: Add your slogan here
+          - generic [ref=e127]:
+            - heading "Slide 3" [level=1] [ref=e128]
+            - paragraph [ref=e129]: Add your slogan here
+        - generic [ref=e135]:
+          - generic [ref=e136]:
+            - paragraph [ref=e137]: Martin Levinton
+            - paragraph [ref=e138]: Lead Systems Architect
+          - paragraph [ref=e139]: "\"Ils ont transformé notre infrastructure vieillissante en un système moderne, fluide et évolutif. L'impact sur nos opérations a été immédiat et mesurable.\""
+          - paragraph [ref=e140]: — Martin Levinton, Lead Systems Architect
+        - generic [ref=e141]:
+          - generic [ref=e142]:
+            - paragraph [ref=e143]: James Richardson
+            - paragraph [ref=e144]: Director of Operations
+          - paragraph [ref=e145]: "\"Leur approche méthodique et leur expertise technique nous ont permis d'atteindre des niveaux d'efficacité que nous n'aurions jamais cru possibles. Un partenariat exceptionnel.\""
+          - paragraph [ref=e146]: — James Richardson, Director of Operations
+        - generic [ref=e147]:
+          - generic [ref=e148]:
+            - paragraph [ref=e149]: David Chen
+            - paragraph [ref=e150]: Safety & Compliance Manager
+          - paragraph [ref=e151]: "\"La conformité et la sécurité étaient nos plus grandes préoccupations. Leur équipe a non seulement répondu à nos exigences, mais a dépassé nos attentes à chaque niveau.\""
+          - paragraph [ref=e152]: — David Chen, Safety & Compliance Manager
+        - generic [ref=e153]:
+          - generic [ref=e154]:
+            - paragraph [ref=e155]: Hiroshi Tanaka
+            - paragraph [ref=e156]: Plant Supervisor
+          - paragraph [ref=e157]: "\"Grâce à leur expertise en automatisation, notre chaîne de production a gagné en fiabilité et en rapidité. Les résultats parlent d'eux-mêmes.\""
+          - paragraph [ref=e158]: — Hiroshi Tanaka, Plant Supervisor
+      - generic [ref=e159]:
+        - generic [ref=e160]:
+          - paragraph [ref=e161]: 25%
+          - paragraph [ref=e162]: Réduction moyenne des temps d'arrêt non planifiés
+        - generic [ref=e163]:
+          - paragraph [ref=e164]: 30%
+          - paragraph [ref=e165]: Cycles de production accélérés par la robotique
+        - generic [ref=e166]:
+          - paragraph [ref=e167]: 18%
+          - paragraph [ref=e168]: Rendement amélioré sur les processus optimisés
+        - generic [ref=e169]:
+          - paragraph [ref=e170]: 99%
+          - paragraph [ref=e171]: Disponibilité garantie par nos contrats de service
+    - generic [ref=e174]:
+      - paragraph [ref=e175]: Contactez-nous
+      - heading "Construisons votre prochaine solution." [level=1] [ref=e176]
+      - paragraph [ref=e177]: Que vous cherchiez à optimiser vos systèmes existants ou à concevoir quelque chose d'entièrement nouveau, notre équipe est prête à livrer des solutions conçues pour l'avenir.
+      - paragraph [ref=e179]: Discutons de votre projet
+    - generic [ref=e181]:
+      - generic [ref=e182]:
+        - generic [ref=e183]:
+          - paragraph [ref=e184]: bauhem
+          - paragraph [ref=e185]: Des systèmes structurés qui transforment votre présence digitale en un écosystème performant.
+        - generic [ref=e186]:
+          - paragraph [ref=e187]: Services
+          - paragraph [ref=e188]: Systèmes Webflow
+          - paragraph [ref=e189]: SEO et IA
+          - paragraph [ref=e190]: Automatisation
+        - generic [ref=e191]:
+          - paragraph [ref=e192]: Agence
+          - paragraph [ref=e193]: À propos
+          - paragraph [ref=e194]: Réalisations
+          - paragraph [ref=e195]: Blog
+        - generic [ref=e196]:
+          - paragraph [ref=e197]: Contact
+          - paragraph [ref=e198]: hello@bauhem.com
+          - paragraph [ref=e199]: Montréal, Canada
+      - separator [ref=e200]
+      - paragraph [ref=e202]: © 2026 bauhem. Tous droits réservés.
+  - link "This website was built using Ycode." [ref=e203] [cursor=pointer]:
+    - /url: https://ycode.com
+    - img [ref=e204]
+    - img [ref=e206]
+  - button "Open Next.js Dev Tools" [ref=e213] [cursor=pointer]:
+    - img [ref=e214]
+  - alert [ref=e217]

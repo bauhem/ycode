@@ -1,0 +1,35 @@
+[     581ms] [INFO] %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold @ http://localhost:3002/_next/static/chunks/13gc_next_dist_08thvya._.js:2477
+[     653ms] [LOG] [HMR] connected @ http://localhost:3002/_next/static/chunks/13gc_next_dist_08thvya._.js:2477
+[     823ms] [LOG] [Fast Refresh] rebuilding @ http://localhost:3002/_next/static/chunks/13gc_next_dist_08thvya._.js:2477
+[     898ms] [WARNING] Swiper Loop Warning: The number of slides is not enough for loop mode, it will be disabled or not function properly. You need to add more slides (or make duplicates) or lower the values of slidesPerView and slidesPerGroup parameters @ http://localhost:3002/_next/static/chunks/13gc_next_dist_08thvya._.js:2477
+[    1270ms] [LOG] [Fast Refresh] done in 569ms @ http://localhost:3002/_next/static/chunks/13gc_next_dist_08thvya._.js:2477
+[    4112ms] [WARNING] The resource http://localhost:3002/_next/static/chunks/Documents_Github_ycode_components_layers_LocaleSelector_tsx_0e-1rjj._.js was preloaded using link preload but not used within a few seconds from the window's load event. Please make sure it has an appropriate `as` value and it is preloaded intentionally. @ http://localhost:3002/:0
+[    4686ms] [LOG] [Fast Refresh] rebuilding @ http://localhost:3002/_next/static/chunks/13gc_next_dist_08thvya._.js:2477
+[    4708ms] [LOG] [Fast Refresh] done in 123ms @ http://localhost:3002/_next/static/chunks/13gc_next_dist_08thvya._.js:2477
+[    5401ms] [LOG] [Fast Refresh] rebuilding @ http://localhost:3002/_next/static/chunks/13gc_next_dist_08thvya._.js:2477
+[    5575ms] [LOG] [Fast Refresh] done in 275ms @ http://localhost:3002/_next/static/chunks/13gc_next_dist_08thvya._.js:2477
+[    5904ms] [WARNING] Swiper Loop Warning: The number of slides is not enough for loop mode, it will be disabled or not function properly. You need to add more slides (or make duplicates) or lower the values of slidesPerView and slidesPerGroup parameters @ http://localhost:3002/_next/static/chunks/13gc_next_dist_08thvya._.js:2477
+[   31290ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/ycode/api/cache/clear-all:0
+[   34291ms] [WARNING] The resource http://localhost:3002/_next/static/chunks/Documents_Github_ycode_components_layers_LocaleSelector_tsx_0e-1rjj._.js was preloaded using link preload but not used within a few seconds from the window's load event. Please make sure it has an appropriate `as` value and it is preloaded intentionally. @ http://localhost:3002/:0
+[   52054ms] [LOG] [Fast Refresh] rebuilding @ http://localhost:3002/_next/static/chunks/13gc_next_dist_08thvya._.js:2477
+[   52793ms] [LOG] [Fast Refresh] done in 839ms @ http://localhost:3002/_next/static/chunks/13gc_next_dist_08thvya._.js:2477
+[   55357ms] [WARNING] The resource http://localhost:3002/_next/static/chunks/Documents_Github_ycode_components_layers_LocaleSelector_tsx_0e-1rjj._.js was preloaded using link preload but not used within a few seconds from the window's load event. Please make sure it has an appropriate `as` value and it is preloaded intentionally. @ http://localhost:3002/:0
+[   63070ms] [LOG] [Fast Refresh] rebuilding @ http://localhost:3002/_next/static/chunks/13gc_next_dist_08thvya._.js:2477
+[   63159ms] [LOG] [Fast Refresh] done in 190ms @ http://localhost:3002/_next/static/chunks/13gc_next_dist_08thvya._.js:2477
+[   64711ms] [LOG] [Fast Refresh] rebuilding @ http://localhost:3002/_next/static/chunks/13gc_next_dist_08thvya._.js:2477
+[   64716ms] [LOG] [Fast Refresh] done in 105ms @ http://localhost:3002/_next/static/chunks/13gc_next_dist_08thvya._.js:2477
+[   85102ms] [ERROR] WebSocket connection to 'ws://localhost:3002/_next/webpack-hmr?id=jdtPQUMAetS12wEQ_GxEj' failed: Error in connection establishment: net::ERR_CONNECTION_REFUSED @ http://localhost:3002/_next/static/chunks/13gc_next_dist_client_0-g0skv._.js:13322
+[   86105ms] [ERROR] WebSocket connection to 'ws://localhost:3002/_next/webpack-hmr?id=jdtPQUMAetS12wEQ_GxEj' failed: Error in connection establishment: net::ERR_CONNECTION_REFUSED @ http://localhost:3002/_next/static/chunks/13gc_next_dist_client_0-g0skv._.js:13322
+[   87108ms] [ERROR] WebSocket connection to 'ws://localhost:3002/_next/webpack-hmr?id=jdtPQUMAetS12wEQ_GxEj' failed: Error in connection establishment: net::ERR_CONNECTION_REFUSED @ http://localhost:3002/_next/static/chunks/13gc_next_dist_client_0-g0skv._.js:13322
+[   89302ms] [LOG] [HMR] connected @ http://localhost:3002/_next/static/chunks/13gc_next_dist_08thvya._.js:2477
+[   92304ms] [WARNING] The resource http://localhost:3002/_next/static/chunks/Documents_Github_ycode_components_layers_LocaleSelector_tsx_0e-1rjj._.js was preloaded using link preload but not used within a few seconds from the window's load event. Please make sure it has an appropriate `as` value and it is preloaded intentionally. @ http://localhost:3002/:0
+[   93840ms] [INFO] %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold @ http://localhost:3002/_next/static/chunks/13gc_next_dist_08thvya._.js:2477
+[   94007ms] [LOG] [HMR] connected @ http://localhost:3002/_next/static/chunks/13gc_next_dist_08thvya._.js:2477
+[   94970ms] [WARNING] Swiper Loop Warning: The number of slides is not enough for loop mode, it will be disabled or not function properly. You need to add more slides (or make duplicates) or lower the values of slidesPerView and slidesPerGroup parameters @ http://localhost:3002/_next/static/chunks/13gc_next_dist_08thvya._.js:2477
+[   98492ms] [LOG] [Fast Refresh] rebuilding @ http://localhost:3002/_next/static/chunks/13gc_next_dist_08thvya._.js:2477
+[   98509ms] [LOG] [Fast Refresh] done in 120ms @ http://localhost:3002/_next/static/chunks/13gc_next_dist_08thvya._.js:2477
+[   99006ms] [LOG] [Fast Refresh] rebuilding @ http://localhost:3002/_next/static/chunks/13gc_next_dist_08thvya._.js:2477
+[   99012ms] [LOG] [Fast Refresh] done in 108ms @ http://localhost:3002/_next/static/chunks/13gc_next_dist_08thvya._.js:2477
+[   99974ms] [WARNING] Swiper Loop Warning: The number of slides is not enough for loop mode, it will be disabled or not function properly. You need to add more slides (or make duplicates) or lower the values of slidesPerView and slidesPerGroup parameters @ http://localhost:3002/_next/static/chunks/13gc_next_dist_08thvya._.js:2477
+[  104876ms] [LOG] [Fast Refresh] rebuilding @ http://localhost:3002/_next/static/chunks/13gc_next_dist_08thvya._.js:2477
+[  104913ms] [LOG] [Fast Refresh] done in 137ms @ http://localhost:3002/_next/static/chunks/13gc_next_dist_08thvya._.js:2477

@@ -7,7 +7,7 @@
 
 import { create } from 'zustand';
 import { localisationApi } from '@/lib/api';
-import { getTranslatableKey } from '@/lib/localisation-utils';
+import { getTranslatableKey, getTranslationByKey as resolveTranslationByKey } from '@/lib/localisation-utils';
 import type { Locale, CreateLocaleData, UpdateLocaleData, Translation, CreateTranslationData, UpdateTranslationData } from '@/types';
 
 /**
@@ -349,12 +349,12 @@ export const useLocalisationStore = create<LocalisationStore>((set, get) => ({
   // Get translation by translation object or key parts
   getTranslation: (localeId, translation) => {
     const key = getTranslatableKey(translation);
-    return get().translations[localeId]?.[key];
+    return resolveTranslationByKey(get().translations[localeId], key);
   },
 
   // Get translation by translatable key string
   getTranslationByKey: (localeId, key) => {
-    return get().translations[localeId]?.[key];
+    return resolveTranslationByKey(get().translations[localeId], key);
   },
 
   // Get all translations for a specific source

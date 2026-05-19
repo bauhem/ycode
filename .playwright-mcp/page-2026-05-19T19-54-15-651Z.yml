@@ -1,0 +1,21 @@
+- generic [active] [ref=e1]:
+  - main [ref=e2]:
+    - generic [ref=e3]:
+      - generic [ref=e5]:
+        - heading "À propos" [level=1] [ref=e7]
+        - generic [ref=e8]:
+          - paragraph [ref=e10]: Unlock the power to create impressive, professional websites with user-friendly tools and intuitive design.
+          - generic [ref=e11]:
+            - button "Get started" [ref=e12]:
+              - generic [ref=e13]: Get started
+            - button "Learn more" [ref=e14]:
+              - generic [ref=e15]: Learn more
+          - generic [ref=e16]: Yessir
+      - img "Image" [ref=e18]
+  - link "This website was built using Ycode." [ref=e19] [cursor=pointer]:
+    - /url: https://ycode.com
+    - img [ref=e20]
+    - img [ref=e22]
+  - button "Open Next.js Dev Tools" [ref=e29] [cursor=pointer]:
+    - img [ref=e30]
+  - alert [ref=e33]

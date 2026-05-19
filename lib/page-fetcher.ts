@@ -23,6 +23,7 @@ import {
 } from '@/lib/page-navigation';
 import { getAllPages } from '@/lib/repositories/pageRepository';
 import { getAllPageFolders } from '@/lib/repositories/pageFolderRepository';
+import { getAllCollections } from '@/lib/repositories/collectionRepository';
 
 // Pagination context passed through to resolveCollectionLayers
 export interface PaginationContext {
@@ -191,6 +192,18 @@ function matchDynamicPagePattern(urlPath: string, patternPath: string): string |
   return match[1] || null;
 }
 
+function getSlugLookupCandidates(slugValue: string): string[] {
+  const trimmed = slugValue.trim();
+  const withoutLeadingSlash = trimmed.replace(/^\/+/, '');
+  const withLeadingSlash = withoutLeadingSlash ? `/${withoutLeadingSlash}` : '/';
+
+  return Array.from(new Set([
+    trimmed,
+    withoutLeadingSlash,
+    withLeadingSlash,
+  ].filter(Boolean)));
+}
+
 /**
  * Load translations for a locale from the database
  * @param localeCode - The locale code (e.g., "fr", "en")
@@ -312,11 +325,12 @@ async function getCollectionItemBySlug(
     }
 
     // Fall back to original slug lookup (no translation or translation not found)
+    const slugCandidates = getSlugLookupCandidates(slugValue);
     const { data: valueData, error: valueError } = await supabase
       .from('collection_item_values')
       .select('item_id')
       .eq('field_id', slugFieldId)
-      .eq('value', slugValue)
+      .in('value', slugCandidates)
       .eq('is_published', isPublished)
       .is('deleted_at', null)
       .limit(1)
@@ -2137,12 +2151,37 @@ async function buildCollectionCache(
         getAllPages({ is_published: isPublished }),
         getAllPageFolders({ is_published: isPublished }),
       ]);
+
+      const collectionIdsFromPages = Array.from(new Set(
+        pages
+          .filter(page => page.settings?.dropdown_mode === 'collection_items' && page.settings?.dropdown_collection_id)
+          .map(page => page.settings?.dropdown_collection_id)
+          .filter((value): value is string => Boolean(value))
+      ));
+
+      const allCollections = collectionIdsFromPages.length > 0
+        ? await getAllCollections({ is_published: isPublished, deleted: false })
+        : [];
+      const matchingCollections = allCollections.filter(collection => collectionIdsFromPages.includes(collection.id));
+
+      const collectionFieldsByCollectionId: Record<string, CollectionField[]> = {};
+      const collectionItemsByCollectionId: Record<string, any[]> = {};
+
+      await Promise.all(matchingCollections.map(async (collection) => {
+        collectionFieldsByCollectionId[collection.id] = await getFieldsByCollectionId(collection.id, isPublished, { excludeComputed: true });
+        const { items } = await getItemsWithValues(collection.id, isPublished, undefined);
+        collectionItemsByCollectionId[collection.id] = items;
+      }));
+
       const navigationItems = buildPageNavigationCollectionItems({
         pages,
         folders,
         target: 'nav',
         locale,
         translations,
+        collections: matchingCollections,
+        collectionFieldsByCollectionId,
+        collectionItemsByCollectionId,
       });
 
       result.itemsByCollection.set(PAGE_NAVIGATION_COLLECTION_ID, navigationItems);

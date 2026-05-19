@@ -47,7 +47,14 @@ export function getTranslationByKey(
   translationKey: string
 ): Translation | undefined {
   if (!translations) return undefined;
-  return translations[translationKey];
+  const direct = translations[translationKey];
+  if (direct) return direct;
+
+  const legacyLayerMatch = translationKey.match(/^(page|component):([^:]+):layer:([^:]+):text$/);
+  if (!legacyLayerMatch) return undefined;
+
+  const [, sourceType, sourceId, layerId] = legacyLayerMatch;
+  return translations[`${sourceType}:${sourceId}:${layerId}`];
 }
 
 /**

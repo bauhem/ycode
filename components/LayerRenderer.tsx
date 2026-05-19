@@ -1379,8 +1379,6 @@ const LayerItemImpl: React.FC<{
     // Skip fetching for multi-asset collections (they don't have real collection data)
     if (collectionVariable.source_field_type === 'multi_asset') return;
     if (collectionVariable.id === MULTI_ASSET_COLLECTION_ID) return;
-    // Skip fetching for the virtual page navigation collection (resolved locally, not in the DB)
-    if (collectionVariable.id === PAGE_NAVIGATION_COLLECTION_ID) return;
     if (isLoadingLayerData) return;
 
     // Checkbox wrappers store sort config in settings.optionsSource, not in the collection variable

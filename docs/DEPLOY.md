@@ -272,6 +272,17 @@ Stocker le mot de passe dans le coffre client.
 
 ## 8. Config Codex MCP Supabase
 
+Avant de configurer le MCP, assurez-vous que le serveur MCP Supabase est présent et compilé sur la machine locale. Si ce n'est pas le cas, clonez le dépôt MCP officiel (ou votre fork personnalisé) et compilez-le :
+
+```bash
+cd /chemin/vers/ycode
+# Exemple avec le repo officiel si applicable, ou copier le dossier depuis une autre machine
+git clone https://github.com/supabase-community/mcp-supabase.git
+cd mcp-supabase
+npm install
+npm run build
+```
+
 Le MCP Supabase doit utiliser une URL API qui parle directement a Kong, sans Basic Auth.
 
 Configuration de principe:
