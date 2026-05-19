@@ -908,6 +908,7 @@ export const fetchHomepage = cache(async function fetchHomepage(
       generatedCss: pageLayers?.generated_css || null,
     };
   } catch (error) {
+    console.error('fetchHomepage error:', error);
     return null;
   }
 });
@@ -2216,6 +2217,7 @@ export async function resolveCollectionLayers(
   // published child items, regardless of the surrounding `isPublished` mode.
   for (const [collId, items] of cache.itemsByCollection) {
     if (items.length === 0) continue;
+    if (collId === PAGE_NAVIGATION_COLLECTION_ID) continue;
     await enrichItemsWithCountValues(items, collId, isPublished);
   }
 
