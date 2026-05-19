@@ -1,8 +1,0 @@
-- generic [active]:
-  - link "This website was built using Ycode." [ref=e1] [cursor=pointer]:
-    - /url: https://ycode.com
-    - img [ref=e2]
-    - img [ref=e4]
-  - button "Open Next.js Dev Tools" [ref=e11] [cursor=pointer]:
-    - img [ref=e12]
-  - alert [ref=e15]

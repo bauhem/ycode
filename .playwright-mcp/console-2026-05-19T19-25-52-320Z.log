@@ -1,6 +1,0 @@
-[     396ms] [INFO] %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold @ http://localhost:3002/_next/static/chunks/13gc_next_dist_08thvya._.js:2477
-[     411ms] [LOG] [HMR] connected @ http://localhost:3002/_next/static/chunks/13gc_next_dist_08thvya._.js:2477
-[     504ms] [WARNING] Swiper Loop Warning: The number of slides is not enough for loop mode, it will be disabled or not function properly. You need to add more slides (or make duplicates) or lower the values of slidesPerView and slidesPerGroup parameters @ http://localhost:3002/_next/static/chunks/13gc_next_dist_08thvya._.js:2477
-[    5505ms] [WARNING] Swiper Loop Warning: The number of slides is not enough for loop mode, it will be disabled or not function properly. You need to add more slides (or make duplicates) or lower the values of slidesPerView and slidesPerGroup parameters @ http://localhost:3002/_next/static/chunks/13gc_next_dist_08thvya._.js:2477
-[   26223ms] [LOG] [Fast Refresh] rebuilding @ http://localhost:3002/_next/static/chunks/13gc_next_dist_08thvya._.js:2477
-[   26267ms] [LOG] [Fast Refresh] done in 146ms @ http://localhost:3002/_next/static/chunks/13gc_next_dist_08thvya._.js:2477

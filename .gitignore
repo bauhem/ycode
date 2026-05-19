@@ -28,6 +28,9 @@ Thumbs.db
 # opencode config (contains secrets)
 opencode.json
 mcp-supabase/
+.playwright-mcp/
+.opencode/
+.specify/
 
 # debug
 npm-debug.log*
