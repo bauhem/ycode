@@ -3,6 +3,7 @@ import { getCollectionById, updateCollection, deleteCollection } from '@/lib/rep
 import { getItemsByCollectionId } from '@/lib/repositories/collectionItemRepository';
 import { deleteTranslationsInBulk } from '@/lib/repositories/translationRepository';
 import { noCache } from '@/lib/api-response';
+import { PAGE_NAVIGATION_COLLECTION, PAGE_NAVIGATION_COLLECTION_ID } from '@/lib/page-navigation';
 
 // Disable caching for this route
 export const dynamic = 'force-dynamic';
@@ -18,6 +19,10 @@ export async function GET(
 ) {
   try {
     const { id } = await params;
+
+    if (id === PAGE_NAVIGATION_COLLECTION_ID) {
+      return noCache({ data: PAGE_NAVIGATION_COLLECTION });
+    }
 
     // Always get draft version in the builder
     const collection = await getCollectionById(id, false);

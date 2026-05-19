@@ -527,9 +527,30 @@ function extractSeoItems(
   }
 }
 
+function extractNavigationItems(
+  page: Page,
+  items: TranslatableItem[]
+): void {
+  const navLabel = page.settings?.nav_label;
+  if (!navLabel || typeof navLabel !== 'string' || !navLabel.trim()) return;
+
+  items.push({
+    key: `page:${page.id}:nav:label`,
+    source_type: 'page',
+    source_id: page.id,
+    content_key: 'nav:label',
+    content_type: 'text',
+    content_value: navLabel.trim(),
+    info: {
+      icon: 'link',
+      label: 'Navigation label',
+    },
+  });
+}
+
 /**
- * Extract all translatable items from a page (slug, SEO, and layers)
- * Ordered: slug first, then SEO settings, then layer texts
+ * Extract all translatable items from a page (slug, navigation, SEO, and layers)
+ * Ordered: slug first, then navigation/SEO settings, then layer texts
  * Note: Dynamic page slugs are excluded from translation
  */
 export function extractPageTranslatableItems(
@@ -557,7 +578,8 @@ export function extractPageTranslatableItems(
     });
   }
 
-  // 2. Extract SEO items (second)
+  // 2. Extract navigation and SEO items (second)
+  extractNavigationItems(page, items);
   extractSeoItems(page.id, page.settings?.seo, items);
 
   // 3. Extract layer texts (third)

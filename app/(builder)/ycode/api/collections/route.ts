@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getAllCollections, createCollection } from '@/lib/repositories/collectionRepository';
 import { noCache } from '@/lib/api-response';
+import { PAGE_NAVIGATION_COLLECTION } from '@/lib/page-navigation';
 
 // Disable caching for this route
 export const dynamic = 'force-dynamic';
@@ -14,9 +15,9 @@ export async function GET() {
   try {
     // Always get draft collections in the builder
     const collections = await getAllCollections({ is_published: false, deleted: false });
-    
+
     return noCache({
-      data: collections,
+      data: [PAGE_NAVIGATION_COLLECTION, ...collections],
     });
   } catch (error) {
     console.error('Error fetching collections:', error);

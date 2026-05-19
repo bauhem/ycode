@@ -652,6 +652,21 @@ export interface Page {
 }
 
 export interface PageSettings {
+  hide_in_nav?: boolean;
+  hide_in_footer?: boolean;
+  nav_label?: string | null;
+  nav_order?: number | null;
+  nav_locale_overrides?: Record<string, {
+    hide_in_nav?: boolean;
+    hide_in_footer?: boolean;
+    nav_label?: string | null;
+  }>;
+  dropdown_mode?: 'none' | 'folder_pages' | 'collection_items';
+  dropdown_folder_id?: string | null;
+  dropdown_collection_id?: string | null;
+  dropdown_target_page_id?: string | null;
+  dropdown_items_mode?: 'all' | 'selected';
+  dropdown_selected_item_ids?: string[] | null;
   cms?: {
     collection_id: string;
     slug_field_id: string;

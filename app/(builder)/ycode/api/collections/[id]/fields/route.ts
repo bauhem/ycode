@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getFieldsByCollectionId, createField, getFieldById } from '@/lib/repositories/collectionFieldRepository';
 import { isValidFieldType, VALID_FIELD_TYPES } from '@/lib/collection-field-utils';
 import { noCache } from '@/lib/api-response';
+import { PAGE_NAVIGATION_COLLECTION_ID, PAGE_NAVIGATION_FIELDS } from '@/lib/page-navigation';
 
 // Disable caching for this route
 export const dynamic = 'force-dynamic';
@@ -25,6 +26,13 @@ export async function GET(
     const search = searchParams.get('search') || undefined;
 
     const filters = search ? { search } : undefined;
+
+    if (id === PAGE_NAVIGATION_COLLECTION_ID) {
+      const fields = search
+        ? PAGE_NAVIGATION_FIELDS.filter(field => field.name.toLowerCase().includes(search.toLowerCase()))
+        : PAGE_NAVIGATION_FIELDS;
+      return noCache({ data: fields });
+    }
 
     // Always get draft fields in the builder
     const fields = await getFieldsByCollectionId(id, false, filters);

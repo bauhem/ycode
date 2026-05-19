@@ -1,61 +1,66 @@
-# Guide de déploiement client
+# Guide de deploiement client
 
-## Architecture (Option A — 1 VPS par client)
+Ce document est le chemin de reference pour deployer Ycode avec une instance Supabase self-hosted par client. Il doit rester utilisable par un autre agent sans connaissance implicite de l'infra Bauhem.
 
-```
-┌──────────────────────┐   ┌──────────────────────────────┐
-│  admin.bauhem.com    │   │  client.com                  │
-│  (Netlify - agence)  │   │  (Netlify - site client)     │
-│  Dashboard clients   │   │                               │
-└──────────────────────┘   └──────────────────────────────┘
-         │                            │
-         ▼                            ▼
-┌──────────────────────┐   ┌──────────────────────────────┐
-│  supabase.client.com  │   │  supabase.client2.com        │
-│  (VPS OVH - Client 1) │   │  (VPS OVH - Client 2)       │
-│  Supabase + DB        │   │  Supabase + DB               │
-└──────────────────────┘   └──────────────────────────────┘
-```
-
-Chaque client a :
-- **1 VPS OVH dédié** → Supabase + PostgreSQL
-- **1 site Netlify** → Ycode builder (fork du repo)
-- **1 domaine admin** → `admin.client.com`
-- **1 domaine Supabase** → `supabase.client.com`
-- **Total revient : ~$10 CAD/mois**
-- **Prix client : $49 CAD/mois** → marge ~$39 CAD/mois
-
-L'admin agence (`admin.bauhem.com`) est un site statique / hub vers chaque client.
+Principes:
+- 1 VPS par client pour Supabase, PostgreSQL et Kong.
+- 1 site Netlify par client pour l'admin Ycode.
+- L'API Supabase doit etre joignable sans Basic Auth sur les routes API.
+- Les secrets ne doivent pas etre stockes dans ce repo ni dans ce document.
+- Les ports ouverts doivent etre choisis explicitement: API publique, SSH, et DB directe seulement si assume.
 
 ---
 
-## 1. Provision VPS OVH
+## Architecture cible
 
-Créer un VPS OVH (Canada) :
-- Modèle : **VPS-1** (4 vCPU, 8 GB RAM, 75 GB SSD)
-- OS : **Ubuntu 24.04**
-- Localisation : **Beauharnois (BHS)**
+```
+admin.client.com              supabase-api.client.com
+Netlify / Ycode admin   --->  VPS client / Supabase Kong :8000
+                              Docker: db, rest, auth, storage, studio
+```
 
-Noter l'IP du VPS.
+Chaque client a:
+- un VPS dedie, idealement Ubuntu 24.04;
+- Docker + Supabase self-hosted;
+- un domaine API Supabase, par exemple `supabase-api.client.com`;
+- un domaine admin Ycode, par exemple `admin.client.com`;
+- un coffre client contenant les secrets.
 
-## 2. Config initiale VPS
+La route API Supabase (`/rest/v1`, `/auth/v1`, `/storage/v1`, `/functions/v1`) ne doit pas etre protegee par Basic Auth. Si Studio doit etre protege, le faire sur un host separe ou une route separee, pas devant Kong API.
+
+---
+
+## 1. Provisionner le VPS
+
+Creer un VPS Ubuntu 24.04. Pour Bauhem, le profil historique etait OVH VPS-1, mais le guide fonctionne avec tout VPS equivalent.
+
+Ouvrir seulement ce qui est necessaire:
+- `22/tcp` pour SSH;
+- `80/tcp` et `443/tcp` pour HTTP/HTTPS;
+- `5433/tcp` seulement si la DB Postgres directe doit etre accessible depuis l'exterieur.
 
 ```bash
 ssh root@<IP_DU_VPS>
 
 apt update && apt upgrade -y
-apt install -y docker.io docker-compose-v2
+apt install -y docker.io docker-compose-v2 nginx certbot python3-certbot-nginx
 
 adduser ubuntu
 usermod -aG docker ubuntu
 
-ufw allow 80
-ufw allow 443
-ufw allow 22
+ufw allow 22/tcp
+ufw allow 80/tcp
+ufw allow 443/tcp
+# Optionnel: ouvrir la DB directe seulement si c'est voulu.
+# ufw allow from <IP_ADMIN_FIXE> to any port 5433 proto tcp
 ufw enable
 ```
 
-## 3. Installer Supabase
+Copier la cle SSH admin dans `/home/ubuntu/.ssh/authorized_keys`, puis continuer avec `ubuntu`.
+
+---
+
+## 2. Installer Supabase self-hosted
 
 ```bash
 ssh ubuntu@<IP_DU_VPS>
@@ -63,276 +68,339 @@ ssh ubuntu@<IP_DU_VPS>
 git clone --depth 1 https://github.com/supabase/supabase ~/supabase
 cd ~/supabase/docker
 cp .env.example .env
+```
 
-# Éditer les valeurs de base dans .env :
-#   POSTGRES_PASSWORD=<mot_de_passe_fort>
-#   JWT_SECRET=<secret_fort>
-#   SITE_URL=http://<IP_DU_VPS>:8000
-#   API_EXTERNAL_URL=http://<IP_DU_VPS>:8000
+Configurer `~/supabase/docker/.env`:
 
+```env
+POSTGRES_PASSWORD=<mot_de_passe_fort>
+JWT_SECRET=<secret_fort>
+SITE_URL=https://admin.client.com
+API_EXTERNAL_URL=https://supabase-api.client.com
+SUPABASE_PUBLIC_URL=https://supabase-api.client.com
+ADDITIONAL_REDIRECT_URLS=https://admin.client.com
+```
+
+Generer ou recuperer les cles Supabase:
+
+```bash
 ./generate-keys.sh
 docker compose up -d
+docker ps --format 'table {{.Names}}\t{{.Status}}'
 ```
 
-## 4. Exposer PostgreSQL (port 5433)
+Verifier:
+- `supabase-kong` healthy;
+- `supabase-db` healthy;
+- `supabase-rest`, `supabase-auth`, `supabase-storage` up.
 
-Ajouter dans `~/supabase/docker/docker-compose.yml`, section `db:` :
+---
 
-```yaml
-  db:
-    container_name: supabase-db
-    ports:
-      - "5433:5432"
-```
+## 3. Exposer l'API Supabase
+
+Kong ecoute habituellement sur le port `8000` du VPS. Nginx doit proxyfier vers Kong.
 
 ```bash
-docker compose up -d db
-```
-
-## 5. Appliquer les migrations Ycode
-
-```bash
-# Depuis la machine locale
-cd /chemin/vers/ycode
-rsync -avz database/migrations/ ubuntu@<IP_VPS>:~/migrations/
-
-# Sur le VPS
-for f in ~/migrations/*.sql; do
-  echo "Applying $f..."
-  PGPASSWORD=<POSTGRES_PASSWORD> psql -h localhost -p 5433 \
-    -U supabase_admin -d postgres -f "$f"
-done
-```
-
-## 6. Configurer le domaine + SSL (VPS)
-
-### 6.1 Ajouter le DNS
-
-Dans Netlify DNS, ajouter :
-
-| Name | Type | Value |
-|------|------|-------|
-| `supabase.client.com` | A | `<IP_DU_VPS>` |
-
-### 6.2 Nginx + Let's Encrypt
-
-```bash
-sudo apt install -y nginx certbot python3-certbot-nginx
-
-sudo tee /etc/nginx/sites-available/supabase << EOF
+sudo tee /etc/nginx/sites-available/supabase-api << 'EOF'
 server {
     listen 80;
-    server_name supabase.client.com;
+    server_name supabase-api.client.com;
 
     location / {
-        proxy_pass http://localhost:8000;
+        proxy_pass http://127.0.0.1:8000;
         proxy_http_version 1.1;
-        proxy_set_header Upgrade \$http_upgrade;
+        proxy_set_header Upgrade $http_upgrade;
         proxy_set_header Connection "upgrade";
-        proxy_set_header Host \$host;
-        proxy_set_header X-Real-IP \$remote_addr;
-        proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto \$scheme;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
         proxy_read_timeout 86400;
     }
 }
 EOF
 
-sudo ln -s /etc/nginx/sites-available/supabase /etc/nginx/sites-enabled/
+sudo ln -s /etc/nginx/sites-available/supabase-api /etc/nginx/sites-enabled/
 sudo nginx -t && sudo systemctl reload nginx
-
-sudo certbot --nginx -d supabase.client.com \
-  --non-interactive --agree-tos --email admin@bauhem.com
-
-sudo certbot renew --dry-run
+sudo certbot --nginx -d supabase-api.client.com --agree-tos --email admin@client.com
 ```
 
-### 6.3 Mettre à jour Supabase avec HTTPS
+Important: ne pas mettre Basic Auth sur ce host si Ycode, les clients Supabase ou le MCP doivent appeler l'API.
+
+Verifier depuis une machine externe:
+
+```bash
+curl -I https://supabase-api.client.com/rest/v1/
+# Attendu sans apikey: 401 avec WWW-Authenticate: Key, pas Basic.
+
+curl -I \
+  -H "apikey: <ANON_KEY>" \
+  -H "Authorization: Bearer <ANON_KEY>" \
+  https://supabase-api.client.com/rest/v1/
+# Attendu: 200 ou une reponse PostgREST valide.
+```
+
+Si la premiere commande retourne `WWW-Authenticate: Basic`, l'API est mal exposee pour Ycode/MCP.
+
+---
+
+## 4. Acces PostgreSQL direct
+
+Ycode utilise aussi des operations SQL directes via Knex. Il faut donc une URL PostgreSQL fiable.
+
+Option A, DB exposee explicitement sur `5433`:
+
+```yaml
+# ~/supabase/docker/docker-compose.yml
+services:
+  db:
+    ports:
+      - "5433:5432"
+```
 
 ```bash
 cd ~/supabase/docker
-sed -i "s|SITE_URL=http://.*|SITE_URL=https://supabase.client.com|" .env
-sed -i "s|API_EXTERNAL_URL=http://.*|API_EXTERNAL_URL=https://supabase.client.com|" .env
-sed -i "s|SUPABASE_PUBLIC_URL=http://.*|SUPABASE_PUBLIC_URL=https://supabase.client.com|" .env
-echo "ADDITIONAL_REDIRECT_URLS=https://admin.client.com" >> .env
-
-docker compose down && docker compose up -d
+docker compose up -d db
 ```
 
-## 7. Déployer Ycode sur Netlify
+URL:
 
-### 7.1 Créer le fork
+```text
+postgresql://supabase_admin:<POSTGRES_PASSWORD>@<IP_DU_VPS>:5433/postgres
+```
 
-1. Aller sur https://github.com/bauhem/ycode
-2. Cliquer **Fork** → **Create a new fork**
-3. Sélectionner l'organisation **bauhem**
-4. Renommer en `ycode-client` (optionnel)
-
-### 7.2 Configurer sur Netlify
+Option B, tunnel SSH si la DB ne doit pas etre exposee publiquement:
 
 ```bash
-# Créer le site Netlify
-npx netlify-cli sites:create --name "client-ycode" --team "Live-Bauhem"
+ssh -i ~/.ssh/<CLE_CLIENT> -L 5433:<IP_CONTAINER_DB>:5432 ubuntu@<IP_DU_VPS> -N
+```
 
-# Définir les variables d'environnement
-npx netlify-cli env:set SUPABASE_URL "https://supabase.client.com"
-npx netlify-cli env:set SUPABASE_ANON_KEY "<ANON_KEY>"
-npx netlify-cli env:set SUPABASE_SERVICE_ROLE_KEY "<SERVICE_ROLE_KEY>"
-npx netlify-cli env:set SUPABASE_CONNECTION_URL "postgresql://supabase_admin:<DB_PASS>@<IP_VPS>:5433/postgres"
+URL locale:
+
+```text
+postgresql://supabase_admin:<POSTGRES_PASSWORD>@localhost:5433/postgres
+```
+
+Pour trouver l'IP du container DB:
+
+```bash
+docker inspect -f '{{range.NetworkSettings.Networks}}{{.IPAddress}}{{end}}' supabase-db
+```
+
+Verification:
+
+```bash
+PGPASSWORD=<POSTGRES_PASSWORD> psql \
+  -h <HOST_DB> -p <PORT_DB> -U supabase_admin -d postgres \
+  -c 'select current_database(), current_user;'
+```
+
+---
+
+## 5. Appliquer les migrations Ycode
+
+Depuis la machine locale:
+
+```bash
+cd /chemin/vers/ycode
+rsync -avz database/migrations/ ubuntu@<IP_DU_VPS>:~/migrations/
+```
+
+Sur le VPS:
+
+```bash
+for f in ~/migrations/*.sql; do
+  echo "Applying $f..."
+  PGPASSWORD=<POSTGRES_PASSWORD> psql \
+    -h localhost -p 5433 -U supabase_admin -d postgres -f "$f"
+done
+```
+
+Si la DB n'est accessible que via tunnel, appliquer les migrations depuis la machine locale avec `localhost:5433`.
+
+---
+
+## 6. Deployer Ycode sur Netlify
+
+Creer un fork du repo Ycode pour le client, puis creer un site Netlify.
+
+Variables Netlify minimales:
+
+```bash
+npx netlify-cli env:set SUPABASE_URL "https://supabase-api.client.com"
+npx netlify-cli env:set SUPABASE_PUBLISHABLE_KEY "<ANON_KEY>"
+npx netlify-cli env:set SUPABASE_SECRET_KEY "<SERVICE_ROLE_KEY>"
+npx netlify-cli env:set SUPABASE_CONNECTION_URL "postgresql://supabase_admin:<POSTGRES_PASSWORD>@<HOST_DB>:<PORT_DB>/postgres"
 npx netlify-cli env:set SUPABASE_DB_PASSWORD "<POSTGRES_PASSWORD>"
-npx netlify-cli env:set JWT_SECRET "<JWT_SECRET>"
+npx netlify-cli env:set JWT_SECRET "<APP_JWT_SECRET>"
 npx netlify-cli env:set PAGE_AUTH_SECRET "<secret_random>"
 ```
 
-### 7.3 Lier GitHub + déployer
+Notes:
+- Le code actuel lit `SUPABASE_PUBLISHABLE_KEY` et `SUPABASE_SECRET_KEY`.
+- Garder `SUPABASE_ANON_KEY` et `SUPABASE_SERVICE_ROLE_KEY` seulement si un autre runtime les exige.
+- Ne pas commiter `.env`.
 
-Dans Netlify Dashboard :
-1. **Site settings → Build & deploy → Link to GitHub**
-2. Sélectionner le fork fraîchement créé
-3. Le build se lance automatiquement
-
-### 7.4 Domaine personnalisé du Ycode admin
-
-Ajouter un CNAME dans Netlify DNS :
+DNS admin:
 
 | Name | Type | Value |
 |------|------|-------|
-| `admin` | CNAME | `client-ycode.netlify.app` |
+| `admin` | CNAME | `<site-netlify>.netlify.app` |
 
-Puis dans Netlify Dashboard :
-1. **Site settings → Domain management → Custom domains**
-2. **Add a domain** → `admin.client.com`
+---
 
-Le SSL sera automatique (Let's Encrypt).
-
-## 8. Créer le compte admin client
+## 7. Creer le compte admin client
 
 ```bash
 ANON_KEY=<ANON_KEY>
 SERVICE_ROLE_KEY=<SERVICE_ROLE_KEY>
+SUPABASE_URL=https://supabase-api.client.com
 
-PASSWORD=$(openssl rand -base64 12 | tr -d /=+ | cut -c1-16)
+PASSWORD=$(openssl rand -base64 18 | tr -d /=+ | cut -c1-20)
 echo "Password: $PASSWORD"
 
-curl -s -X POST "https://supabase.client.com/auth/v1/admin/users" \
+curl -s -X POST "$SUPABASE_URL/auth/v1/admin/users" \
   -H "apikey: $ANON_KEY" \
   -H "Authorization: Bearer $SERVICE_ROLE_KEY" \
   -H "Content-Type: application/json" \
   -d "{\"email\":\"admin@client.com\",\"password\":\"$PASSWORD\",\"email_confirm\":true}"
 ```
 
-## 9. Vérification
-
-- **Admin Ycode :** `https://admin.client.com/ycode`
-- **Supabase Studio :** `https://supabase.client.com`
-- **API Supabase :** `https://supabase.client.com/rest/v1/`
-
-## Checklist par client
-
-- [ ] VPS OVH créé (VPS-1, Ubuntu 24.04, BHS)
-- [ ] Docker installé
-- [ ] Supabase installé et en santé
-- [ ] Port 5433 exposé (DB directe)
-- [ ] Migrations Ycode appliquées
-- [ ] DNS : `supabase.client.com` → IP du VPS
-- [ ] Nginx + Let's Encrypt (HTTPS)
-- [ ] Domaine `admin.client.com` → Netlify DNS
-- [ ] Fork Ycode créé dans bauhem/
-- [ ] Site Netlify créé
-- [ ] Env vars configurées sur Netlify
-- [ ] Build Netlify réussi
-- [ ] Compte admin créé
-- [ ] Connexion fonctionnelle
-
-## Variables à stocker (coffre client)
-
-| Variable | Source |
-|----------|--------|
-| IP du VPS | Console OVH |
-| POSTGRES_PASSWORD | `supabase/docker/.env` |
-| JWT_SECRET | `supabase/docker/.env` |
-| ANON_KEY | `supabase/docker/.env` |
-| SERVICE_ROLE_KEY | `supabase/docker/.env` |
-| SUPABASE_URL | `https://supabase.client.com` |
-| DB connection string | `postgresql://supabase_admin:<PASS>@<IP>:5433/postgres` |
-| Mot de passe admin Ycode | Généré à l'étape 8 |
+Stocker le mot de passe dans le coffre client.
 
 ---
 
-## Bauhem — Contexte spécifique
+## 8. Config Codex MCP Supabase
 
-### VPS actuel
-- **IP** : `51.222.143.231` (Telus Montréal, pas OVH)
-- **Supabase** via Docker, Kong API sur port 8000
-- **Domaine** : `https://supabase.bauhem.com`
+Le MCP Supabase doit utiliser une URL API qui parle directement a Kong, sans Basic Auth.
 
-### Problème connu : PostgreSQL inaccessible en direct
+Configuration de principe:
 
-Le port **5432** est intercepté par **supavisor** (proxy Supabase).
-- La connexion TCP aboutit mais le serveur n'envoie aucune réponse PostgreSQL
-- L'API REST (Kong, port 8000) fonctionne ✅
-- Solution : **SSH tunnel** pour contourner le proxy
+```toml
+[mcp_servers.supabase-client]
+command = "node"
+args = [
+  "/chemin/vers/ycode/mcp-supabase/dist/index.js",
+  "--url", "https://supabase-api.client.com",
+  "--anon-key", "<ANON_KEY>",
+  "--service-key", "<SERVICE_ROLE_KEY>",
+  "--db-url", "postgresql://supabase_admin:<POSTGRES_PASSWORD>@<HOST_DB>:<PORT_DB>/postgres",
+  "--jwt-secret", "<SUPABASE_JWT_SECRET>"
+]
+```
+
+Pour Bauhem localement, si `https://supabase.bauhem.com` est protege par Basic Auth, utiliser l'URL Kong directe:
+
+```toml
+"--url", "http://51.222.143.231:8000"
+```
+
+Tests attendus:
 
 ```bash
-# Établir le tunnel
-ssh -L 5433:172.18.0.4:5432 root@51.222.143.231 -N
+curl -I http://51.222.143.231:8000/rest/v1/
+# 401 avec WWW-Authenticate: Key
 
-# Modifier .env après tunnel
-SUPABASE_CONNECTION_URL=postgresql://supabase_admin:f6d2be7bd1d91c6c8d3d150e79591d85@localhost:5433/postgres
+curl -I https://supabase.bauhem.com/rest/v1/
+# Si 401 avec WWW-Authenticate: Basic, ne pas utiliser cette URL pour le MCP.
 ```
 
-### Développement local
-- Serveur : `http://localhost:3002` (`npm run dev`)
-- Le serveur utilise **Knex** (PG direct) + **Supabase REST API** (via `getSupabaseAdmin`)
-- Certaines routes Knex échouent sans tunnel (ex: `getItemsSortedByField` → "Tenant or user not found")
-- Les routes utilisant `getSupabaseAdmin()` (REST API) fonctionnent sans tunnel
+Si un MCP deja charge retourne `Transport closed` apres modification de `~/.codex/config.toml`, relancer Codex/la session pour recharger le serveur MCP.
 
-### Credentials locaux (`.env`)
+---
 
+## 9. Checklist client
+
+- [ ] VPS cree et accessible en SSH.
+- [ ] Docker et Compose installes.
+- [ ] Supabase Docker demarre et containers healthy.
+- [ ] `SUPABASE_PUBLIC_URL`, `API_EXTERNAL_URL`, `SITE_URL` configures.
+- [ ] DNS API Supabase pointe vers le VPS.
+- [ ] HTTPS actif sur le host API.
+- [ ] L'API retourne `WWW-Authenticate: Key`, pas `Basic`.
+- [ ] URL PostgreSQL directe ou tunnel SSH valide.
+- [ ] Migrations Ycode appliquees.
+- [ ] Fork Ycode cree.
+- [ ] Site Netlify cree.
+- [ ] Variables Netlify configurees.
+- [ ] Build Netlify reussi.
+- [ ] Domaine admin configure.
+- [ ] Compte admin cree.
+- [ ] Connexion admin testee.
+- [ ] MCP Supabase teste si un agent doit operer la DB.
+
+---
+
+## 10. Variables a stocker dans le coffre client
+
+| Variable | Source |
+|----------|--------|
+| IP du VPS | Console hebergeur |
+| SSH user | Provision VPS |
+| SSH key name | Machine admin |
+| POSTGRES_PASSWORD | `~/supabase/docker/.env` |
+| JWT_SECRET Supabase | `~/supabase/docker/.env` |
+| ANON_KEY | `~/supabase/docker/.env` apres `generate-keys.sh` |
+| SERVICE_ROLE_KEY | `~/supabase/docker/.env` apres `generate-keys.sh` |
+| SUPABASE_URL | Domaine API Supabase |
+| SUPABASE_CONNECTION_URL | URL Postgres directe ou tunnel |
+| Mot de passe admin Ycode | Etape 7 |
+
+Ne pas mettre ces valeurs dans Git, dans ce document, ni dans un ticket non securise.
+
+---
+
+## Bauhem actuel
+
+Etat verifie le 2026-05-19:
+
+- VPS: `51.222.143.231`.
+- Host SSH fonctionnel: `ubuntu@51.222.143.231`.
+- Cle locale fonctionnelle: `~/.ssh/vps_ycode`.
+- Docker Supabase tourne sur le VPS.
+- Kong API direct: `http://51.222.143.231:8000`.
+- Domaine public: `https://supabase.bauhem.com`.
+- Attention: `https://supabase.bauhem.com` retourne une Basic Auth et ne doit pas etre utilise comme URL MCP tant que cette protection couvre l'API.
+- URL MCP Supabase locale recommandee pour l'instant: `http://51.222.143.231:8000`.
+- DB directe verifiee: `51.222.143.231:5433` avec user `supabase_admin`.
+
+Containers observes:
+
+```text
+supabase-edge-functions
+supabase-kong
+supabase-studio
+supabase-storage
+supabase-analytics
+supabase-meta
+supabase-pooler
+supabase-auth
+realtime-dev.supabase-realtime
+supabase-rest
+supabase-db
+supabase-vector
+supabase-imgproxy
 ```
-SUPABASE_PUBLISHABLE_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
-SUPABASE_SECRET_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
-SUPABASE_CONNECTION_URL=postgresql://supabase_admin:f6d2be7bd1d91c6c8d3d150e79591d85@51.222.143.231:5432/postgres
-SUPABASE_DB_PASSWORD=f6d2be7bd1d91c6c8d3d150e79591d85
-SUPABASE_URL=http://51.222.143.231:8000
-```
 
-### Design System Bauhem
-- **Font** : Inter (Google Font)
-- **Couleurs** : `#000000`, `#ffffff`, `#d0311e`, `#eae9e6`, `#676767`, `#171717`
-
-### Locales
-| Langue | ID | Code | Défaut |
-|--------|----|------|--------|
-| FR | `99990e19-dfd1-44f4-8a7d-e22d89305e3f` | `fr` | ✅ |
-| EN | `a28a2581-def2-4a6f-8f2e-478f61143f0d` | `en` | ❌ |
-
-### Collection Pages (CMS)
-- **16 items** : 6 top-level (Accueil, À propos, Expertise, Réalisations, Contact, Blog) + 10 enfants
-
-| Field ID | Name | Type |
-|----------|------|------|
-| `6f1d7113-...` | Title | text |
-| `e2909f40-...` | Slug | text |
-| `2530aa30-...` | Order | number |
-| `de1182dd-...` | Parent Page | reference (self) |
-
-### Navigation (Composant)
-- **Component ID** : `71cb79f1-8ed8-4e1f-bc3e-309f5e158475`
-- **Collection layer** `lyr-mp9x7e4aylumk5` : Pages, filtre `parent_page IS EMPTY`, sort `manual`
-- **Template item** : `div.item-wrapper` → text Title + Children Dropdown `lyr-mp9xho98femm6h`
-- **CSS dropdown** : hover + `:focus-within` (bouton invisible overlay pour mobile)
-- **Limitation API MCP** : ne peut pas configurer les filtres dynamiques `current item` (lasso ✨ dans le builder) ni les liens dynamiques via Slug
-
-### Commandes utiles
+Commandes utiles:
 
 ```bash
-# Dev serveur
+# Verifier les containers
+ssh -i ~/.ssh/vps_ycode ubuntu@51.222.143.231 \
+  'docker ps --format "table {{.Names}}\t{{.Status}}"'
+
+# Verifier Kong direct
+curl -I http://51.222.143.231:8000/rest/v1/
+
+# Verifier que le domaine public n'est pas adapte au MCP s'il reste en Basic Auth
+curl -I https://supabase.bauhem.com/rest/v1/
+
+# Dev local Ycode
 npm run dev
-
-# Tunnel SSH (quand la DB directe est nécessaire)
-ssh -L 5433:172.18.0.4:5432 root@51.222.143.231 -N
-
-# Logs serveur
-tail -f /tmp/ycode-server.log
 ```
+
+Contexte Ycode Bauhem:
+- Serveur local habituel: `http://localhost:3002`.
+- Locale FR par defaut, EN secondaire.
+- Design system: Inter, noir/blanc, rouge `#d0311e`, neutres `#eae9e6`, `#676767`, `#171717`.
+- Le composant Navigation historique doit etre alimente par les vraies pages Ycode, pas par une collection CMS `Navigation`.

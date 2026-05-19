@@ -145,7 +145,18 @@ const PageSettingsPanel = React.forwardRef<PageSettingsPanelHandle, PageSettings
   const [nextPrevSortBy, setNextPrevSortBy] = useState<string>('manual');
   const [nextPrevSortOrder, setNextPrevSortOrder] = useState<'asc' | 'desc'>('asc');
 
-  const { collections, fields } = useCollectionsStore();
+  const [hideInNav, setHideInNav] = useState(false);
+  const [hideInFooter, setHideInFooter] = useState(false);
+  const [navLabel, setNavLabel] = useState('');
+  const [navOrder, setNavOrder] = useState('');
+  const [dropdownMode, setDropdownMode] = useState<'none' | 'folder_pages' | 'collection_items'>('none');
+  const [dropdownFolderId, setDropdownFolderId] = useState<string | null>(null);
+  const [dropdownCollectionId, setDropdownCollectionId] = useState<string | null>(null);
+  const [dropdownTargetPageId, setDropdownTargetPageId] = useState<string | null>(null);
+  const [dropdownItemsMode, setDropdownItemsMode] = useState<'all' | 'selected'>('all');
+  const [dropdownSelectedItemIds, setDropdownSelectedItemIds] = useState<string[]>([]);
+
+  const { collections, fields, items, loadItems } = useCollectionsStore();
 
   const seoImageId = typeof seoImage === 'string' ? seoImage : null;
   const seoImageAsset = useAsset(seoImageId);
@@ -156,10 +167,10 @@ const PageSettingsPanel = React.forwardRef<PageSettingsPanelHandle, PageSettings
   const [currentPage, setCurrentPage] = useState<Page | null | undefined>(page);
 
   // Initialize active tab from URL or default to general
-  const [activeTab, setActiveTab] = useState<'general' | 'seo' | 'custom-code'>(() => {
+  const [activeTab, setActiveTab] = useState<'general' | 'navigation' | 'seo' | 'custom-code'>(() => {
     const editParam = searchParams?.get('edit');
-    if (['seo', 'custom-code', 'general'].includes(editParam || '')) {
-      return editParam as 'general' | 'seo' | 'custom-code';
+    if (['seo', 'custom-code', 'general', 'navigation'].includes(editParam || '')) {
+      return editParam as 'general' | 'navigation' | 'seo' | 'custom-code';
     }
     return 'general';
   });
@@ -188,7 +199,7 @@ const PageSettingsPanel = React.forwardRef<PageSettingsPanelHandle, PageSettings
   // Handle tab changes - update local state
   // URL is updated by the effect below when activeTab changes
   const handleTabChange = useCallback((value: string) => {
-    const newTab = value as 'general' | 'seo' | 'custom-code';
+    const newTab = value as 'general' | 'navigation' | 'seo' | 'custom-code';
     setActiveTab(newTab);
   }, []);
 
@@ -218,6 +229,16 @@ const PageSettingsPanel = React.forwardRef<PageSettingsPanelHandle, PageSettings
     slugFieldId: string | null;
     nextPrevSortBy: string;
     nextPrevSortOrder: 'asc' | 'desc';
+    hideInNav: boolean;
+    hideInFooter: boolean;
+    navLabel: string;
+    navOrder: string;
+    dropdownMode: 'none' | 'folder_pages' | 'collection_items';
+    dropdownFolderId: string | null;
+    dropdownCollectionId: string | null;
+    dropdownTargetPageId: string | null;
+    dropdownItemsMode: 'all' | 'selected';
+    dropdownSelectedItemIds: string[];
   } | null>(null);
 
   const pages = usePagesStore((state) => state.pages);
@@ -369,7 +390,17 @@ const PageSettingsPanel = React.forwardRef<PageSettingsPanelHandle, PageSettings
       collectionId !== initial.collectionId ||
       slugFieldId !== initial.slugFieldId ||
       nextPrevSortBy !== initial.nextPrevSortBy ||
-      nextPrevSortOrder !== initial.nextPrevSortOrder
+      nextPrevSortOrder !== initial.nextPrevSortOrder ||
+      hideInNav !== initial.hideInNav ||
+      hideInFooter !== initial.hideInFooter ||
+      navLabel !== initial.navLabel ||
+      navOrder !== initial.navOrder ||
+      dropdownMode !== initial.dropdownMode ||
+      dropdownFolderId !== initial.dropdownFolderId ||
+      dropdownCollectionId !== initial.dropdownCollectionId ||
+      dropdownTargetPageId !== initial.dropdownTargetPageId ||
+      dropdownItemsMode !== initial.dropdownItemsMode ||
+      dropdownSelectedItemIds.join('\0') !== initial.dropdownSelectedItemIds.join('\0')
     );
 
     // Clear rejected page when user makes changes (allows them to try navigating again)
@@ -379,7 +410,7 @@ const PageSettingsPanel = React.forwardRef<PageSettingsPanelHandle, PageSettings
 
     return hasChanges;
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [name, slug, pageFolderId, isIndex, seoTitle, seoDescription, seoImage, seoNoindex, customCodeHead, customCodeBody, authEnabled, authPassword, collectionId, slugFieldId, nextPrevSortBy, nextPrevSortOrder, saveCounter]);
+  }, [name, slug, pageFolderId, isIndex, seoTitle, seoDescription, seoImage, seoNoindex, customCodeHead, customCodeBody, authEnabled, authPassword, collectionId, slugFieldId, nextPrevSortBy, nextPrevSortOrder, hideInNav, hideInFooter, navLabel, navOrder, dropdownMode, dropdownFolderId, dropdownCollectionId, dropdownTargetPageId, dropdownItemsMode, dropdownSelectedItemIds, saveCounter]);
 
   // Expose method to check for unsaved changes externally
   useImperativeHandle(ref, () => ({
@@ -471,6 +502,16 @@ const PageSettingsPanel = React.forwardRef<PageSettingsPanelHandle, PageSettings
             initialValuesRef.current.nextPrevSortBy = settings?.cms?.next_previous?.sort_by || initialIdFieldId || 'manual';
             initialValuesRef.current.nextPrevSortOrder = settings?.cms?.next_previous?.sort_order || 'asc';
           }
+          initialValuesRef.current.hideInNav = settings?.hide_in_nav === true;
+          initialValuesRef.current.hideInFooter = settings?.hide_in_footer === true;
+          initialValuesRef.current.navLabel = settings?.nav_label || '';
+          initialValuesRef.current.navOrder = settings?.nav_order != null ? String(settings.nav_order) : '';
+          initialValuesRef.current.dropdownMode = settings?.dropdown_mode || 'none';
+          initialValuesRef.current.dropdownFolderId = settings?.dropdown_folder_id || null;
+          initialValuesRef.current.dropdownCollectionId = settings?.dropdown_collection_id || null;
+          initialValuesRef.current.dropdownTargetPageId = settings?.dropdown_target_page_id || null;
+          initialValuesRef.current.dropdownItemsMode = settings?.dropdown_items_mode || 'all';
+          initialValuesRef.current.dropdownSelectedItemIds = settings?.dropdown_selected_item_ids || [];
         }
         return;
       } else {
@@ -498,7 +539,17 @@ const PageSettingsPanel = React.forwardRef<PageSettingsPanelHandle, PageSettings
       collectionId !== initialValuesRef.current.collectionId ||
       slugFieldId !== initialValuesRef.current.slugFieldId ||
       nextPrevSortBy !== initialValuesRef.current.nextPrevSortBy ||
-      nextPrevSortOrder !== initialValuesRef.current.nextPrevSortOrder
+      nextPrevSortOrder !== initialValuesRef.current.nextPrevSortOrder ||
+      hideInNav !== initialValuesRef.current.hideInNav ||
+      hideInFooter !== initialValuesRef.current.hideInFooter ||
+      navLabel !== initialValuesRef.current.navLabel ||
+      navOrder !== initialValuesRef.current.navOrder ||
+      dropdownMode !== initialValuesRef.current.dropdownMode ||
+      dropdownFolderId !== initialValuesRef.current.dropdownFolderId ||
+      dropdownCollectionId !== initialValuesRef.current.dropdownCollectionId ||
+      dropdownTargetPageId !== initialValuesRef.current.dropdownTargetPageId ||
+      dropdownItemsMode !== initialValuesRef.current.dropdownItemsMode ||
+      dropdownSelectedItemIds.join('\0') !== initialValuesRef.current.dropdownSelectedItemIds.join('\0')
     );
 
     // If we have unsaved changes, show confirmation dialog BEFORE changing
@@ -543,6 +594,16 @@ const PageSettingsPanel = React.forwardRef<PageSettingsPanelHandle, PageSettings
       const initialIdFieldId = fields[settings?.cms?.collection_id || '']?.find(f => f.key === 'id')?.id;
       const initialNextPrevSortBy = settings?.cms?.next_previous?.sort_by || initialIdFieldId || 'manual';
       const initialNextPrevSortOrder: 'asc' | 'desc' = settings?.cms?.next_previous?.sort_order || 'asc';
+      const initialHideInNav = settings?.hide_in_nav === true;
+      const initialHideInFooter = settings?.hide_in_footer === true;
+      const initialNavLabel = settings?.nav_label || '';
+      const initialNavOrder = settings?.nav_order != null ? String(settings.nav_order) : '';
+      const initialDropdownMode = settings?.dropdown_mode || 'none';
+      const initialDropdownFolderId = settings?.dropdown_folder_id || null;
+      const initialDropdownCollectionId = settings?.dropdown_collection_id || null;
+      const initialDropdownTargetPageId = settings?.dropdown_target_page_id || null;
+      const initialDropdownItemsMode = settings?.dropdown_items_mode || 'all';
+      const initialDropdownSelectedItemIds = settings?.dropdown_selected_item_ids || [];
 
       // IMPORTANT: Save initial values FIRST before updating form state
       // This prevents false "unsaved changes" detection when switching pages
@@ -563,6 +624,16 @@ const PageSettingsPanel = React.forwardRef<PageSettingsPanelHandle, PageSettings
         slugFieldId: initialSlugFieldId,
         nextPrevSortBy: initialNextPrevSortBy,
         nextPrevSortOrder: initialNextPrevSortOrder,
+        hideInNav: initialHideInNav,
+        hideInFooter: initialHideInFooter,
+        navLabel: initialNavLabel,
+        navOrder: initialNavOrder,
+        dropdownMode: initialDropdownMode,
+        dropdownFolderId: initialDropdownFolderId,
+        dropdownCollectionId: initialDropdownCollectionId,
+        dropdownTargetPageId: initialDropdownTargetPageId,
+        dropdownItemsMode: initialDropdownItemsMode,
+        dropdownSelectedItemIds: initialDropdownSelectedItemIds,
       };
 
       setName(initialName);
@@ -581,6 +652,16 @@ const PageSettingsPanel = React.forwardRef<PageSettingsPanelHandle, PageSettings
       setSlugFieldId(initialSlugFieldId);
       setNextPrevSortBy(initialNextPrevSortBy);
       setNextPrevSortOrder(initialNextPrevSortOrder);
+      setHideInNav(initialHideInNav);
+      setHideInFooter(initialHideInFooter);
+      setNavLabel(initialNavLabel);
+      setNavOrder(initialNavOrder);
+      setDropdownMode(initialDropdownMode);
+      setDropdownFolderId(initialDropdownFolderId);
+      setDropdownCollectionId(initialDropdownCollectionId);
+      setDropdownTargetPageId(initialDropdownTargetPageId);
+      setDropdownItemsMode(initialDropdownItemsMode);
+      setDropdownSelectedItemIds(initialDropdownSelectedItemIds);
     } else {
       // Reset initial values for new page FIRST
       initialValuesRef.current = {
@@ -600,6 +681,16 @@ const PageSettingsPanel = React.forwardRef<PageSettingsPanelHandle, PageSettings
         slugFieldId: null,
         nextPrevSortBy: 'manual',
         nextPrevSortOrder: 'asc',
+        hideInNav: false,
+        hideInFooter: false,
+        navLabel: '',
+        navOrder: '',
+        dropdownMode: 'none',
+        dropdownFolderId: null,
+        dropdownCollectionId: null,
+        dropdownTargetPageId: null,
+        dropdownItemsMode: 'all',
+        dropdownSelectedItemIds: [],
       };
 
       setName('');
@@ -618,6 +709,16 @@ const PageSettingsPanel = React.forwardRef<PageSettingsPanelHandle, PageSettings
       setSlugFieldId(null);
       setNextPrevSortBy('manual');
       setNextPrevSortOrder('asc');
+      setHideInNav(false);
+      setHideInFooter(false);
+      setNavLabel('');
+      setNavOrder('');
+      setDropdownMode('none');
+      setDropdownFolderId(null);
+      setDropdownCollectionId(null);
+      setDropdownTargetPageId(null);
+      setDropdownItemsMode('all');
+      setDropdownSelectedItemIds([]);
     }
 
     // Clear error state when page changes
@@ -707,6 +808,45 @@ const PageSettingsPanel = React.forwardRef<PageSettingsPanelHandle, PageSettings
   }, [currentPage, pageFolderId, pages]);
 
   const isOnRootFolder = useMemo(() => currentPage?.page_folder_id === null, [currentPage]);
+
+  const dropdownTargetPages = useMemo(() => {
+    if (!dropdownCollectionId) return [];
+    return pages.filter(candidate =>
+      candidate.is_dynamic &&
+      candidate.settings?.cms?.collection_id === dropdownCollectionId &&
+      candidate.deleted_at === null
+    );
+  }, [dropdownCollectionId, pages]);
+
+  const dropdownCollectionItems = useMemo(() => {
+    if (!dropdownCollectionId) return [];
+    return items[dropdownCollectionId] || [];
+  }, [dropdownCollectionId, items]);
+
+  const dropdownCollectionFields = useMemo(() => {
+    if (!dropdownCollectionId) return [];
+    return fields[dropdownCollectionId] || [];
+  }, [dropdownCollectionId, fields]);
+
+  const getDropdownItemLabel = useCallback((itemId: string) => {
+    const item = dropdownCollectionItems.find(candidate => candidate.id === itemId);
+    if (!item) return `Item ${itemId.slice(0, 8)}`;
+
+    const labelField = dropdownCollectionFields.find(field => field.key === 'name')
+      || dropdownCollectionFields.find(field => field.key === 'title')
+      || dropdownCollectionFields.find(field => field.key === 'slug')
+      || dropdownCollectionFields.find(field => field.type === 'text' && !field.hidden);
+    const label = labelField ? item.values?.[labelField.id] : null;
+
+    return label && String(label).trim() ? String(label) : `Item ${item.id.slice(0, 8)}`;
+  }, [dropdownCollectionFields, dropdownCollectionItems]);
+
+  useEffect(() => {
+    if (!dropdownCollectionId || items[dropdownCollectionId]?.length) return;
+    loadItems(dropdownCollectionId, 1, 100).catch((err) => {
+      console.error('Failed to load dropdown collection items:', err);
+    });
+  }, [dropdownCollectionId, items, loadItems]);
 
   // Build the slug path preview based on current form values
   const slugPathPreview = useMemo(() => {
@@ -872,6 +1012,16 @@ const PageSettingsPanel = React.forwardRef<PageSettingsPanelHandle, PageSettings
         setSlugFieldId(initialValuesRef.current.slugFieldId);
         setNextPrevSortBy(initialValuesRef.current.nextPrevSortBy);
         setNextPrevSortOrder(initialValuesRef.current.nextPrevSortOrder);
+        setHideInNav(initialValuesRef.current.hideInNav);
+        setHideInFooter(initialValuesRef.current.hideInFooter);
+        setNavLabel(initialValuesRef.current.navLabel);
+        setNavOrder(initialValuesRef.current.navOrder);
+        setDropdownMode(initialValuesRef.current.dropdownMode);
+        setDropdownFolderId(initialValuesRef.current.dropdownFolderId);
+        setDropdownCollectionId(initialValuesRef.current.dropdownCollectionId);
+        setDropdownTargetPageId(initialValuesRef.current.dropdownTargetPageId);
+        setDropdownItemsMode(initialValuesRef.current.dropdownItemsMode);
+        setDropdownSelectedItemIds(initialValuesRef.current.dropdownSelectedItemIds);
       }
 
       rejectedPageRef.current = null;
@@ -901,6 +1051,16 @@ const PageSettingsPanel = React.forwardRef<PageSettingsPanelHandle, PageSettings
         setSlugFieldId(initialValuesRef.current.slugFieldId);
         setNextPrevSortBy(initialValuesRef.current.nextPrevSortBy);
         setNextPrevSortOrder(initialValuesRef.current.nextPrevSortOrder);
+        setHideInNav(initialValuesRef.current.hideInNav);
+        setHideInFooter(initialValuesRef.current.hideInFooter);
+        setNavLabel(initialValuesRef.current.navLabel);
+        setNavOrder(initialValuesRef.current.navOrder);
+        setDropdownMode(initialValuesRef.current.dropdownMode);
+        setDropdownFolderId(initialValuesRef.current.dropdownFolderId);
+        setDropdownCollectionId(initialValuesRef.current.dropdownCollectionId);
+        setDropdownTargetPageId(initialValuesRef.current.dropdownTargetPageId);
+        setDropdownItemsMode(initialValuesRef.current.dropdownItemsMode);
+        setDropdownSelectedItemIds(initialValuesRef.current.dropdownSelectedItemIds);
       }
 
       rejectedPageRef.current = null;
@@ -957,6 +1117,12 @@ const PageSettingsPanel = React.forwardRef<PageSettingsPanelHandle, PageSettings
     // Validation
     if (!name.trim()) {
       setError('Page name is required');
+      return;
+    }
+
+    const normalizedNavOrder = navOrder.trim() === '' ? null : Number(navOrder);
+    if (normalizedNavOrder !== null && !Number.isFinite(normalizedNavOrder)) {
+      setError('Navigation order must be a number');
       return;
     }
 
@@ -1058,6 +1224,18 @@ const PageSettingsPanel = React.forwardRef<PageSettingsPanelHandle, PageSettings
           head: customCodeHead.trim(),
           body: customCodeBody.trim(),
         },
+        hide_in_nav: hideInNav,
+        hide_in_footer: hideInFooter,
+        nav_label: navLabel.trim() || null,
+        nav_order: normalizedNavOrder,
+        dropdown_mode: dropdownMode,
+        dropdown_folder_id: dropdownMode === 'folder_pages' ? dropdownFolderId : null,
+        dropdown_collection_id: dropdownMode === 'collection_items' ? dropdownCollectionId : null,
+        dropdown_target_page_id: dropdownMode === 'collection_items' ? dropdownTargetPageId : null,
+        dropdown_items_mode: dropdownMode === 'collection_items' ? dropdownItemsMode : 'all',
+        dropdown_selected_item_ids: dropdownMode === 'collection_items' && dropdownItemsMode === 'selected'
+          ? dropdownSelectedItemIds
+          : null,
         // Explicitly set or clear cms property
         cms: collectionId && slugFieldId ? {
           collection_id: collectionId,
@@ -1089,6 +1267,8 @@ const PageSettingsPanel = React.forwardRef<PageSettingsPanelHandle, PageSettings
       const trimmedCustomCodeHead = customCodeHead.trim();
       const trimmedCustomCodeBody = customCodeBody.trim();
       const trimmedAuthPassword = authPassword.trim();
+      const trimmedNavLabel = navLabel.trim();
+      const normalizedNavOrderString = normalizedNavOrder != null ? String(normalizedNavOrder) : '';
 
       setName(trimmedName);
       setSlug(trimmedSlug);
@@ -1110,6 +1290,16 @@ const PageSettingsPanel = React.forwardRef<PageSettingsPanelHandle, PageSettings
       const savedNextPrevSortOrder: 'asc' | 'desc' = savedCollectionId ? nextPrevSortOrder : 'asc';
       setNextPrevSortBy(savedNextPrevSortBy);
       setNextPrevSortOrder(savedNextPrevSortOrder);
+      setNavLabel(trimmedNavLabel);
+      setNavOrder(normalizedNavOrderString);
+      setDropdownFolderId(dropdownMode === 'folder_pages' ? dropdownFolderId : null);
+      setDropdownCollectionId(dropdownMode === 'collection_items' ? dropdownCollectionId : null);
+      setDropdownTargetPageId(dropdownMode === 'collection_items' ? dropdownTargetPageId : null);
+      setDropdownItemsMode(dropdownMode === 'collection_items' ? dropdownItemsMode : 'all');
+      setDropdownSelectedItemIds(dropdownMode === 'collection_items' && dropdownItemsMode === 'selected'
+        ? dropdownSelectedItemIds
+        : []
+      );
 
       initialValuesRef.current = {
         name: trimmedName,
@@ -1128,6 +1318,18 @@ const PageSettingsPanel = React.forwardRef<PageSettingsPanelHandle, PageSettings
         slugFieldId: savedSlugFieldId,
         nextPrevSortBy: savedNextPrevSortBy,
         nextPrevSortOrder: savedNextPrevSortOrder,
+        hideInNav,
+        hideInFooter,
+        navLabel: trimmedNavLabel,
+        navOrder: normalizedNavOrderString,
+        dropdownMode,
+        dropdownFolderId: dropdownMode === 'folder_pages' ? dropdownFolderId : null,
+        dropdownCollectionId: dropdownMode === 'collection_items' ? dropdownCollectionId : null,
+        dropdownTargetPageId: dropdownMode === 'collection_items' ? dropdownTargetPageId : null,
+        dropdownItemsMode: dropdownMode === 'collection_items' ? dropdownItemsMode : 'all',
+        dropdownSelectedItemIds: dropdownMode === 'collection_items' && dropdownItemsMode === 'selected'
+          ? dropdownSelectedItemIds
+          : [],
       };
 
       rejectedPageRef.current = null;
@@ -1200,6 +1402,7 @@ const PageSettingsPanel = React.forwardRef<PageSettingsPanelHandle, PageSettings
         >
           <TabsList className="w-full">
             <TabsTrigger value="general">General</TabsTrigger>
+            <TabsTrigger value="navigation">Navigation</TabsTrigger>
             <TabsTrigger value="seo">SEO</TabsTrigger>
             <TabsTrigger value="custom-code">Custom code</TabsTrigger>
           </TabsList>
@@ -1576,6 +1779,235 @@ const PageSettingsPanel = React.forwardRef<PageSettingsPanelHandle, PageSettings
                         onCheckedChange={(checked) => setIsIndex(checked === true)}
                       />
                     </Field>
+                  </FieldGroup>
+                </FieldSet>
+              </FieldGroup>
+            </TabsContent>
+
+            <TabsContent value="navigation">
+              <FieldGroup>
+                <FieldSet>
+                  <FieldGroup>
+                    <Field orientation="horizontal" className="flex flex-row-reverse!">
+                      <FieldContent>
+                        <FieldLabel htmlFor="hideInNav">Hide in nav</FieldLabel>
+                        <FieldDescription>Exclude this page from automatic site navigation.</FieldDescription>
+                      </FieldContent>
+                      <Checkbox
+                        id="hideInNav"
+                        checked={hideInNav}
+                        onCheckedChange={(checked) => setHideInNav(checked === true)}
+                      />
+                    </Field>
+
+                    <Field orientation="horizontal" className="flex flex-row-reverse!">
+                      <FieldContent>
+                        <FieldLabel htmlFor="hideInFooter">Hide in footer</FieldLabel>
+                        <FieldDescription>Exclude this page from automatic footer navigation.</FieldDescription>
+                      </FieldContent>
+                      <Checkbox
+                        id="hideInFooter"
+                        checked={hideInFooter}
+                        onCheckedChange={(checked) => setHideInFooter(checked === true)}
+                      />
+                    </Field>
+
+                    <Field>
+                      <FieldLabel>Navigation label</FieldLabel>
+                      <Input
+                        type="text"
+                        value={navLabel}
+                        onChange={(e) => setNavLabel(e.target.value)}
+                        placeholder={name || 'Page name'}
+                      />
+                      <FieldDescription>Uses the page name when empty. This label is available for localization.</FieldDescription>
+                    </Field>
+
+                    <Field>
+                      <FieldLabel>Navigation order</FieldLabel>
+                      <Input
+                        type="number"
+                        value={navOrder}
+                        onChange={(e) => setNavOrder(e.target.value)}
+                        placeholder={String(currentPage?.order ?? 0)}
+                      />
+                    </Field>
+
+                    <Separator />
+
+                    <Field>
+                      <FieldLabel>Dropdown</FieldLabel>
+                      <Select
+                        value={dropdownMode}
+                        onValueChange={(value) => {
+                          const mode = value as 'none' | 'folder_pages' | 'collection_items';
+                          setDropdownMode(mode);
+                          if (mode !== 'folder_pages') setDropdownFolderId(null);
+                          if (mode !== 'collection_items') {
+                            setDropdownCollectionId(null);
+                            setDropdownTargetPageId(null);
+                            setDropdownItemsMode('all');
+                            setDropdownSelectedItemIds([]);
+                          }
+                        }}
+                      >
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="none">None</SelectItem>
+                          <SelectItem value="folder_pages">Pages from folder</SelectItem>
+                          <SelectItem value="collection_items">Collection items</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </Field>
+
+                    {dropdownMode === 'folder_pages' && (
+                      <Field>
+                        <FieldLabel>Dropdown folder</FieldLabel>
+                        <Select
+                          value={dropdownFolderId || ''}
+                          onValueChange={setDropdownFolderId}
+                        >
+                          <SelectTrigger>
+                            <SelectValue placeholder="Select a folder" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {folderOptions.length > 0 ? (
+                              folderOptions.map((folder) => (
+                                <SelectItem key={folder.id} value={folder.id}>
+                                  <div className="flex items-center gap-2">
+                                    <Icon name="folder" className="size-3" />
+                                    <span>{folder.path}</span>
+                                  </div>
+                                </SelectItem>
+                              ))
+                            ) : (
+                              <div className="px-2 py-1.5 text-sm text-muted-foreground">
+                                No folders available
+                              </div>
+                            )}
+                          </SelectContent>
+                        </Select>
+                        <FieldDescription>The dropdown is built from visible pages in this folder.</FieldDescription>
+                      </Field>
+                    )}
+
+                    {dropdownMode === 'collection_items' && (
+                      <>
+                        <Field>
+                          <FieldLabel>Dropdown collection</FieldLabel>
+                          <Select
+                            value={dropdownCollectionId || ''}
+                            onValueChange={(value) => {
+                              setDropdownCollectionId(value);
+                              setDropdownTargetPageId(null);
+                              setDropdownItemsMode('all');
+                              setDropdownSelectedItemIds([]);
+                            }}
+                          >
+                            <SelectTrigger>
+                              <SelectValue placeholder="Select a collection" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {collections.length > 0 ? (
+                                collections.map((collection) => (
+                                  <SelectItem key={collection.id} value={collection.id}>
+                                    {collection.name}
+                                  </SelectItem>
+                                ))
+                              ) : (
+                                <div className="px-2 py-1.5 text-sm text-muted-foreground">
+                                  No collections available
+                                </div>
+                              )}
+                            </SelectContent>
+                          </Select>
+                        </Field>
+
+                        <Field>
+                          <FieldLabel>Dynamic target page</FieldLabel>
+                          <Select
+                            value={dropdownTargetPageId || ''}
+                            onValueChange={setDropdownTargetPageId}
+                            disabled={!dropdownCollectionId}
+                          >
+                            <SelectTrigger>
+                              <SelectValue placeholder="Select a CMS page" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {dropdownTargetPages.length > 0 ? (
+                                dropdownTargetPages.map((targetPage) => (
+                                  <SelectItem key={targetPage.id} value={targetPage.id}>
+                                    {targetPage.name}
+                                  </SelectItem>
+                                ))
+                              ) : (
+                                <div className="px-2 py-1.5 text-sm text-muted-foreground">
+                                  No matching CMS pages
+                                </div>
+                              )}
+                            </SelectContent>
+                          </Select>
+                          <FieldDescription>Collection item URLs resolve through this dynamic page.</FieldDescription>
+                        </Field>
+
+                        <Field>
+                          <FieldLabel>Items</FieldLabel>
+                          <Select
+                            value={dropdownItemsMode}
+                            onValueChange={(value) => {
+                              const mode = value as 'all' | 'selected';
+                              setDropdownItemsMode(mode);
+                              if (mode === 'all') setDropdownSelectedItemIds([]);
+                            }}
+                          >
+                            <SelectTrigger>
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="all">All items</SelectItem>
+                              <SelectItem value="selected">Selected items</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </Field>
+
+                        {dropdownItemsMode === 'selected' && (
+                          <Field>
+                            <FieldLabel>Selected items</FieldLabel>
+                            <div className="max-h-54 overflow-y-auto rounded-md border">
+                              {dropdownCollectionItems.length > 0 ? (
+                                dropdownCollectionItems.map((item) => {
+                                  const checked = dropdownSelectedItemIds.includes(item.id);
+                                  return (
+                                    <label
+                                      key={item.id}
+                                      className="flex items-center gap-2 px-3 py-2 text-sm hover:bg-muted/50"
+                                    >
+                                      <Checkbox
+                                        checked={checked}
+                                        onCheckedChange={(nextChecked) => {
+                                          setDropdownSelectedItemIds((current) =>
+                                            nextChecked === true
+                                              ? [...current, item.id]
+                                              : current.filter(id => id !== item.id)
+                                          );
+                                        }}
+                                      />
+                                      <span className="truncate">{getDropdownItemLabel(item.id)}</span>
+                                    </label>
+                                  );
+                                })
+                              ) : (
+                                <div className="px-3 py-2 text-sm text-muted-foreground">
+                                  No items available
+                                </div>
+                              )}
+                            </div>
+                          </Field>
+                        )}
+                      </>
+                    )}
                   </FieldGroup>
                 </FieldSet>
               </FieldGroup>

@@ -149,7 +149,8 @@ export const useCollectionLayerStore = create<CollectionLayerStore>((set, get) =
   ) => {
     const { loading, layerConfig } = get();
 
-    // Skip for virtual collections (multi-asset)
+    // Skip multi-asset virtual collections. They are resolved locally and have
+    // no real backing collection endpoint.
     if (collectionId === MULTI_ASSET_COLLECTION_ID) {
       return;
     }

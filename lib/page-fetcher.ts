@@ -15,6 +15,13 @@ import { resolveComponents, applyComponentOverrides } from '@/lib/resolve-compon
 import { isTiptapDoc, hasBlockElementsWithResolver } from '@/lib/tiptap-utils';
 import { castValue } from '@/lib/collection-utils';
 import { DEFAULT_TEXT_STYLES } from '@/lib/text-format-utils';
+import {
+  buildPageNavigationCollectionItems,
+  PAGE_NAVIGATION_COLLECTION_ID,
+  PAGE_NAVIGATION_FIELDS,
+} from '@/lib/page-navigation';
+import { getAllPages } from '@/lib/repositories/pageRepository';
+import { getAllPageFolders } from '@/lib/repositories/pageFolderRepository';
 
 // Pagination context passed through to resolveCollectionLayers
 export interface PaginationContext {
@@ -577,7 +584,7 @@ async function fetchPageByPathInternal(
             // Pass enhanced values so nested collections can filter based on dynamic page data
             // Pass collectionItem.id so inverse reference layers can query by parent item
             let resolvedLayers = layersWithInjectedData.length > 0
-              ? await resolveCollectionLayers(layersWithInjectedData, isPublished, enhancedItemValues, paginationContext, translations, collectionItem.id, timezone)
+              ? await resolveCollectionLayers(layersWithInjectedData, isPublished, enhancedItemValues, paginationContext, translations, collectionItem.id, timezone, detectedLocale)
               : [];
 
             // Resolve collections inside rich text embedded components
@@ -682,7 +689,7 @@ async function fetchPageByPathInternal(
     const layersWithComponents = resolveComponents(pageLayers?.layers || [], components);
 
     let resolvedLayers = layersWithComponents.length > 0
-      ? await resolveCollectionLayers(layersWithComponents, isPublished, undefined, paginationContext, translations, undefined, timezone)
+      ? await resolveCollectionLayers(layersWithComponents, isPublished, undefined, paginationContext, translations, undefined, timezone, detectedLocale)
       : [];
 
     resolvedLayers = await resolveRichTextCollections(resolvedLayers, components, isPublished, translations);
@@ -1907,6 +1914,8 @@ async function buildCollectionCache(
   boundFieldIds?: Set<string>,
   boundFieldPaths?: Set<string>,
   boundCollectionIds?: Set<string>,
+  translations?: Record<string, Translation>,
+  locale?: Locale | null,
 ): Promise<CollectionDataCache> {
   const empty: CollectionDataCache = {
     itemsByCollection: new Map(), totalByCollection: new Map(),
@@ -1914,194 +1923,240 @@ async function buildCollectionCache(
   };
   if (collectionIds.size === 0) return empty;
 
+  const needsPageNavigation = collectionIds.has(PAGE_NAVIGATION_COLLECTION_ID);
+  const databaseCollectionIds = new Set(
+    Array.from(collectionIds).filter(id => id !== PAGE_NAVIGATION_COLLECTION_ID)
+  );
+
   const client = await getSupabaseAdmin();
-  if (!client) return empty;
+  if (!client && !needsPageNavigation) return empty;
 
   // Warm direct DB connection in parallel so first-hit value queries don't pay
   // connection setup cost on the critical path.
-  const warmKnexPromise = getKnexClient()
-    .then(knex => knex.raw('select 1'))
-    .catch(() => null);
+  const warmKnexPromise = databaseCollectionIds.size > 0
+    ? getKnexClient()
+      .then(knex => knex.raw('select 1'))
+      .catch(() => null)
+    : Promise.resolve(null);
 
-  const ids = Array.from(collectionIds);
+  const ids = Array.from(databaseCollectionIds);
+  let result: CollectionDataCache = empty;
 
-  // Phase 1: Fetch fields for all collections (needed to discover reference collections)
-  const { data: nonComputedFieldsData } = await client
-    .from('collection_fields')
-    .select('*')
-    .in('collection_id', ids)
-    .eq('is_published', isPublished)
-    .is('deleted_at', null)
-    .eq('is_computed', false)
-    .order('order', { ascending: true })
-    .limit(5000);
+  if (ids.length === 0) {
+    await warmKnexPromise;
+  } else {
 
-  // Count fields are computed but their config is needed during render so layers
-  // bound to a count value can resolve correctly. Pull them in alongside the
-  // regular fields. Other computed types (e.g. status) are still excluded.
-  const { data: countFieldsData } = await client
-    .from('collection_fields')
-    .select('*')
-    .in('collection_id', ids)
-    .eq('is_published', isPublished)
-    .is('deleted_at', null)
-    .eq('type', 'count')
-    .limit(5000);
-
-  const fieldsData = [...(nonComputedFieldsData || []), ...(countFieldsData || [])];
-
-  // Discover referenced collections so we can pre-fetch their data too.
-  // When boundFieldIds is supplied, only follow reference fields that are bound.
-  const refCollectionIds: string[] = [];
-  const refFieldIdToCollectionId = new Map<string, string>();
-  for (const f of fieldsData || []) {
-    if (f.type === 'reference' && f.reference_collection_id && !collectionIds.has(f.reference_collection_id)) {
-      if (!boundFieldIds || boundFieldIds.has(f.id)) {
-        refCollectionIds.push(f.reference_collection_id);
-        refFieldIdToCollectionId.set(f.id, f.reference_collection_id);
-      }
-    }
-  }
-
-  // Build per-referenced-collection field filters from bound fieldPaths.
-  // For a path "refFieldId.targetFieldId", targetFieldId is needed from the ref collection.
-  const refCollectionBoundFieldIds = new Map<string, Set<string>>();
-  if (boundFieldPaths) {
-    for (const path of boundFieldPaths) {
-      const parts = path.split('.');
-      if (parts.length >= 2) {
-        const refFieldId = parts[0];
-        const targetFieldId = parts[1];
-        const refCollId = refFieldIdToCollectionId.get(refFieldId);
-        if (refCollId) {
-          if (!refCollectionBoundFieldIds.has(refCollId)) refCollectionBoundFieldIds.set(refCollId, new Set());
-          refCollectionBoundFieldIds.get(refCollId)!.add(targetFieldId);
-        }
-      }
-    }
-  }
-
-  // Phase 2: Fetch ref collection fields + ALL items in parallel
-  const allCollIds = [...ids, ...refCollectionIds];
-
-  let itemsQuery = client
-    .from('collection_items')
-    .select('*')
-    .in('collection_id', allCollIds)
-    .eq('is_published', isPublished)
-    .is('deleted_at', null)
-    .order('manual_order', { ascending: true })
-    .order('created_at', { ascending: false })
-    .limit(5000);
-  if (isPublished) {
-    itemsQuery = itemsQuery.eq('is_publishable', true);
-  }
-
-  const refFieldsPromise = refCollectionIds.length > 0
-    ? client.from('collection_fields').select('*')
-      .in('collection_id', refCollectionIds)
+    // Phase 1: Fetch fields for all collections (needed to discover reference collections)
+    const { data: nonComputedFieldsData } = await client!
+      .from('collection_fields')
+      .select('*')
+      .in('collection_id', ids)
       .eq('is_published', isPublished)
       .is('deleted_at', null)
       .eq('is_computed', false)
       .order('order', { ascending: true })
-      .limit(5000)
-    : Promise.resolve({ data: [] as any[] });
+      .limit(5000);
 
-  const [{ data: itemsData }, { data: refFieldsRaw }] = await Promise.all([itemsQuery, refFieldsPromise]);
+    // Count fields are computed but their config is needed during render so layers
+    // bound to a count value render the live number on SSR. Pull them in alongside the
+    // regular fields. Other computed types (e.g. status) are still excluded.
+    const { data: countFieldsData } = await client!
+      .from('collection_fields')
+      .select('*')
+      .in('collection_id', ids)
+      .eq('is_published', isPublished)
+      .is('deleted_at', null)
+      .eq('type', 'count')
+      .limit(5000);
 
-  // Build field structures
-  const allFieldsData = [...(fieldsData || []), ...(refFieldsRaw || [])];
-  const fieldsByCollection = new Map<string, CollectionField[]>();
-  const fieldTypeMap: Record<string, string> = {};
-  for (const f of allFieldsData) {
-    if (!fieldsByCollection.has(f.collection_id)) fieldsByCollection.set(f.collection_id, []);
+    const fieldsData = [...(nonComputedFieldsData || []), ...(countFieldsData || [])];
+
+    // Discover referenced collections so we can pre-fetch their data too.
+    // When boundFieldIds is supplied, only follow reference fields that are bound.
+    const refCollectionIds: string[] = [];
+    const refFieldIdToCollectionId = new Map<string, string>();
+    for (const f of fieldsData || []) {
+      if (f.type === 'reference' && f.reference_collection_id && !collectionIds.has(f.reference_collection_id)) {
+        if (!boundFieldIds || boundFieldIds.has(f.id)) {
+          refCollectionIds.push(f.reference_collection_id);
+          refFieldIdToCollectionId.set(f.id, f.reference_collection_id);
+        }
+      }
+    }
+
+    // Build per-referenced-collection field filters from bound fieldPaths.
+    // For a path "refFieldId.targetFieldId", targetFieldId is needed from the ref collection.
+    const refCollectionBoundFieldIds = new Map<string, Set<string>>();
+    if (boundFieldPaths) {
+      for (const path of boundFieldPaths) {
+        const parts = path.split('.');
+        if (parts.length >= 2) {
+          const refFieldId = parts[0];
+          const targetFieldId = parts[1];
+          const refCollId = refFieldIdToCollectionId.get(refFieldId);
+          if (refCollId) {
+            if (!refCollectionBoundFieldIds.has(refCollId)) refCollectionBoundFieldIds.set(refCollId, new Set());
+          refCollectionBoundFieldIds.get(refCollId)!.add(targetFieldId);
+          }
+        }
+      }
+    }
+
+    // Phase 2: Fetch ref collection fields + ALL items in parallel
+    const allCollIds = [...ids, ...refCollectionIds];
+
+    let itemsQuery = client!
+      .from('collection_items')
+      .select('*')
+      .in('collection_id', allCollIds)
+      .eq('is_published', isPublished)
+      .is('deleted_at', null)
+      .order('manual_order', { ascending: true })
+      .order('created_at', { ascending: false })
+      .limit(5000);
+    if (isPublished) {
+      itemsQuery = itemsQuery.eq('is_publishable', true);
+    }
+
+    const refFieldsPromise = refCollectionIds.length > 0
+      ? client!.from('collection_fields').select('*')
+        .in('collection_id', refCollectionIds)
+        .eq('is_published', isPublished)
+        .is('deleted_at', null)
+        .eq('is_computed', false)
+        .order('order', { ascending: true })
+        .limit(5000)
+      : Promise.resolve({ data: [] as any[] });
+
+    const [{ data: itemsData }, { data: refFieldsRaw }] = await Promise.all([itemsQuery, refFieldsPromise]);
+
+    // Build field structures
+    const allFieldsData = [...(fieldsData || []), ...(refFieldsRaw || [])];
+    const fieldsByCollection = new Map<string, CollectionField[]>();
+    const fieldTypeMap: Record<string, string> = {};
+    for (const f of allFieldsData) {
+      if (!fieldsByCollection.has(f.collection_id)) fieldsByCollection.set(f.collection_id, []);
     fieldsByCollection.get(f.collection_id)!.push(f);
     fieldTypeMap[f.id] = f.type;
-  }
-
-  // Phase 3: Fetch values — filter by bound field IDs when available
-  await warmKnexPromise;
-
-  // Partition items: bound primary (have field filter) vs unbound primary (optionsSource etc.) vs ref
-  const boundPrimaryItemIds: string[] = [];
-  const unboundPrimaryItemIds: string[] = [];
-  const refItemIds: string[] = [];
-  for (const item of itemsData || []) {
-    if (!collectionIds.has(item.collection_id)) {
-      refItemIds.push(item.id);
-    } else if (boundCollectionIds?.has(item.collection_id)) {
-      boundPrimaryItemIds.push(item.id);
-    } else {
-      unboundPrimaryItemIds.push(item.id);
     }
-  }
 
-  // Slug fields are always needed for URL building
-  const slugFieldIds: string[] = [];
-  for (const [, fields] of fieldsByCollection) {
-    const slug = fields.find(f => f.key === 'slug');
-    if (slug) slugFieldIds.push(slug.id);
-  }
+    // Phase 3: Fetch values — filter by bound field IDs when available
+    await warmKnexPromise;
 
-  // Build the field filter for primary collection items
-  let primaryFieldFilter: string[] | undefined;
-  if (boundFieldIds && boundFieldIds.size > 0) {
-    const merged = new Set(boundFieldIds);
-    for (const sid of slugFieldIds) merged.add(sid);
-    primaryFieldFilter = Array.from(merged);
-  }
-
-  // Build per-ref-collection field filter and merge into a single array for the batch call
-  let refFieldFilter: string[] | undefined;
-  if (refCollectionBoundFieldIds.size > 0) {
-    const merged = new Set<string>();
-    for (const [, fids] of refCollectionBoundFieldIds) {
-      for (const fid of fids) merged.add(fid);
+    // Partition items: bound primary (have field filter) vs unbound primary (optionsSource etc.) vs ref
+    const boundPrimaryItemIds: string[] = [];
+    const unboundPrimaryItemIds: string[] = [];
+    const refItemIds: string[] = [];
+    for (const item of itemsData || []) {
+      if (!collectionIds.has(item.collection_id)) {
+        refItemIds.push(item.id);
+      } else if (boundCollectionIds?.has(item.collection_id)) {
+        boundPrimaryItemIds.push(item.id);
+      } else {
+        unboundPrimaryItemIds.push(item.id);
+      }
     }
-    for (const sid of slugFieldIds) merged.add(sid);
-    refFieldFilter = Array.from(merged);
-  }
 
-  // Fetch values: filtered for bound collections, unfiltered for optionsSource/other collections
-  const valueFetches: Promise<Record<string, Record<string, any>>>[] = [];
-  if (boundPrimaryItemIds.length > 0) {
-    valueFetches.push(getValuesByItemIds(boundPrimaryItemIds, isPublished, fieldTypeMap, primaryFieldFilter));
-  }
-  if (unboundPrimaryItemIds.length > 0) {
-    valueFetches.push(getValuesByItemIds(unboundPrimaryItemIds, isPublished, fieldTypeMap));
-  }
-  if (refItemIds.length > 0) {
-    valueFetches.push(getValuesByItemIds(refItemIds, isPublished, fieldTypeMap, refFieldFilter));
-  }
-  const valuesByItem: Record<string, Record<string, any>> = {};
-  if (valueFetches.length > 0) {
-    const results = await Promise.all(valueFetches);
-    for (const r of results) Object.assign(valuesByItem, r);
-  }
-
-  // Build items-with-values grouped by collection + flat index
-  const itemsByCollection = new Map<string, CollectionItemWithValues[]>();
-  const totalByCollection = new Map<string, number>();
-  const itemsById = new Map<string, CollectionItemWithValues>();
-
-  for (const item of itemsData || []) {
-    const withValues: CollectionItemWithValues = { ...item, values: valuesByItem[item.id] || {} };
-    if (!itemsByCollection.has(item.collection_id)) {
-      itemsByCollection.set(item.collection_id, []);
-      totalByCollection.set(item.collection_id, 0);
+    // Slug fields are always needed for URL building
+    const slugFieldIds: string[] = [];
+    for (const [, fields] of fieldsByCollection) {
+      const slug = fields.find(f => f.key === 'slug');
+      if (slug) slugFieldIds.push(slug.id);
     }
+
+    // Build the field filter for primary collection items
+    let primaryFieldFilter: string[] | undefined;
+    if (boundFieldIds && boundFieldIds.size > 0) {
+      const merged = new Set(boundFieldIds);
+      for (const sid of slugFieldIds) merged.add(sid);
+      primaryFieldFilter = Array.from(merged);
+    }
+
+    // Build per-ref-collection field filter and merge into a single array for the batch call
+    let refFieldFilter: string[] | undefined;
+    if (refCollectionBoundFieldIds.size > 0) {
+      const merged = new Set<string>();
+      for (const [, fids] of refCollectionBoundFieldIds) {
+        for (const fid of fids) merged.add(fid);
+      }
+      for (const sid of slugFieldIds) merged.add(sid);
+      refFieldFilter = Array.from(merged);
+    }
+
+    // Fetch values: filtered for bound collections, unfiltered for optionsSource/other collections
+    const valueFetches: Promise<Record<string, Record<string, any>>>[] = [];
+    if (boundPrimaryItemIds.length > 0) {
+      valueFetches.push(getValuesByItemIds(boundPrimaryItemIds, isPublished, fieldTypeMap, primaryFieldFilter));
+    }
+    if (unboundPrimaryItemIds.length > 0) {
+      valueFetches.push(getValuesByItemIds(unboundPrimaryItemIds, isPublished, fieldTypeMap));
+    }
+    if (refItemIds.length > 0) {
+      valueFetches.push(getValuesByItemIds(refItemIds, isPublished, fieldTypeMap, refFieldFilter));
+    }
+    const valuesByItem: Record<string, Record<string, any>> = {};
+    if (valueFetches.length > 0) {
+      const results = await Promise.all(valueFetches);
+      for (const r of results) Object.assign(valuesByItem, r);
+    }
+
+    // Build items-with-values grouped by collection + flat index
+    const itemsByCollection = new Map<string, CollectionItemWithValues[]>();
+    const totalByCollection = new Map<string, number>();
+    const itemsById = new Map<string, CollectionItemWithValues>();
+
+    for (const item of itemsData || []) {
+      const withValues: CollectionItemWithValues = { ...item, values: valuesByItem[item.id] || {} };
+      if (!itemsByCollection.has(item.collection_id)) {
+        itemsByCollection.set(item.collection_id, []);
+        totalByCollection.set(item.collection_id, 0);
+      }
     itemsByCollection.get(item.collection_id)!.push(withValues);
     totalByCollection.set(item.collection_id, totalByCollection.get(item.collection_id)! + 1);
     itemsById.set(item.id, withValues);
+    }
+
+    // Ensure every requested collection has an entry
+    for (const id of allCollIds) {
+      if (!itemsByCollection.has(id)) { itemsByCollection.set(id, []); totalByCollection.set(id, 0); }
+      if (!fieldsByCollection.has(id)) fieldsByCollection.set(id, []);
+    }
+
+    result = { itemsByCollection, totalByCollection, fieldsByCollection, fieldTypeMap, itemsById };
   }
 
-  // Ensure every requested collection has an entry
-  for (const id of allCollIds) {
-    if (!itemsByCollection.has(id)) { itemsByCollection.set(id, []); totalByCollection.set(id, 0); }
-    if (!fieldsByCollection.has(id)) fieldsByCollection.set(id, []);
+  if (needsPageNavigation) {
+    try {
+      const [pages, folders] = await Promise.all([
+        getAllPages({ is_published: isPublished }),
+        getAllPageFolders({ is_published: isPublished }),
+      ]);
+      const navigationItems = buildPageNavigationCollectionItems({
+        pages,
+        folders,
+        target: 'nav',
+        locale,
+        translations,
+      });
+
+      result.itemsByCollection.set(PAGE_NAVIGATION_COLLECTION_ID, navigationItems);
+      result.totalByCollection.set(PAGE_NAVIGATION_COLLECTION_ID, navigationItems.length);
+      result.fieldsByCollection.set(PAGE_NAVIGATION_COLLECTION_ID, PAGE_NAVIGATION_FIELDS);
+      for (const field of PAGE_NAVIGATION_FIELDS) {
+        result.fieldTypeMap[field.id] = field.type;
+      }
+      for (const item of navigationItems) {
+        result.itemsById.set(item.id, item);
+      }
+    } catch (error) {
+      console.error('[buildCollectionCache] Failed to build page navigation items:', error);
+      result.itemsByCollection.set(PAGE_NAVIGATION_COLLECTION_ID, []);
+      result.totalByCollection.set(PAGE_NAVIGATION_COLLECTION_ID, 0);
+      result.fieldsByCollection.set(PAGE_NAVIGATION_COLLECTION_ID, PAGE_NAVIGATION_FIELDS);
+    }
   }
 
-  return { itemsByCollection, totalByCollection, fieldsByCollection, fieldTypeMap, itemsById };
+  return result;
 }
 
 export async function resolveCollectionLayers(
@@ -2112,6 +2167,7 @@ export async function resolveCollectionLayers(
   translations?: Record<string, Translation>,
   parentCollectionItemId?: string,
   timezone?: string,
+  locale?: Locale | null,
 ): Promise<Layer[]> {
   // Reuse caller-provided timezone, or fetch once for the entire tree
   if (!timezone) {
@@ -2146,6 +2202,8 @@ export async function resolveCollectionLayers(
     mergedBoundFieldIds.size > 0 ? mergedBoundFieldIds : undefined,
     mergedBoundFieldPaths.size > 0 ? mergedBoundFieldPaths : undefined,
     scannedCollectionIds.size > 0 ? scannedCollectionIds : undefined,
+    translations,
+    locale,
   );
 
   // Inject computed count field values into the cached items so layers bound

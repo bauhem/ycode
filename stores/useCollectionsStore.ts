@@ -2,6 +2,7 @@ import { create } from 'zustand';
 import { collectionsApi } from '@/lib/api';
 import { sortCollectionsByOrder, getSortParams } from '@/lib/collection-utils';
 import { MULTI_ASSET_COLLECTION_ID, findStatusFieldId, buildStatusValue, getStatusFlagsFromAction } from '@/lib/collection-field-utils';
+import { PAGE_NAVIGATION_COLLECTION, PAGE_NAVIGATION_COLLECTION_ID, PAGE_NAVIGATION_FIELDS } from '@/lib/page-navigation';
 import type { StatusAction } from '@/lib/collection-field-utils';
 import { useAssetsStore } from '@/stores/useAssetsStore';
 import { usePagesStore } from '@/stores/usePagesStore';
@@ -97,7 +98,10 @@ export const useCollectionsStore = create<CollectionsStore>((set, get) => ({
       }
 
       const collections = response.data || [];
-      await get().preloadCollectionsAndItems(collections);
+      const withVirtualCollection = collections.some(collection => collection.id === PAGE_NAVIGATION_COLLECTION_ID)
+        ? collections
+        : [PAGE_NAVIGATION_COLLECTION, ...collections];
+      await get().preloadCollectionsAndItems(withVirtualCollection);
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Failed to load collections';
       set({ error: errorMessage, isLoading: false });
@@ -476,10 +480,15 @@ export const useCollectionsStore = create<CollectionsStore>((set, get) => ({
           fieldsMap[field.collection_id].push(field);
         });
 
+        const nextFieldsMap: Record<string, CollectionField[]> = {
+          ...fieldsMap,
+          [PAGE_NAVIGATION_COLLECTION_ID]: PAGE_NAVIGATION_FIELDS,
+        };
+
         set(state => ({
           fields: {
             ...state.fields,
-            ...fieldsMap,
+            ...nextFieldsMap,
           },
           isLoading: false,
         }));
@@ -1219,8 +1228,11 @@ export const useCollectionsStore = create<CollectionsStore>((set, get) => ({
       const collectionFields = state.fields[collectionId] || [];
       const items = state.items[collectionId] || [];
 
-      // Find the name field (field with key = 'name')
-      const nameField = collectionFields.find(field => field.key === 'name');
+      // Prefer common label fields in order of intent.
+      const nameField = collectionFields.find(field => field.key === 'name')
+        || collectionFields.find(field => field.key === 'title')
+        || collectionFields.find(field => field.key === 'slug')
+        || collectionFields.find(field => field.type === 'text' && !field.hidden);
 
       if (!nameField) {
         console.warn(`Name field not found for collection ${collectionId}. Available fields:`, collectionFields.map(f => ({ id: f.id, key: f.key, name: f.name })));

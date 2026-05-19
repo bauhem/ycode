@@ -10,6 +10,14 @@ import { findStatusFieldId, isAssetFieldType, isMultipleAssetField } from '@/lib
 import type { StatusAction } from '@/lib/collection-field-utils';
 import { noCache } from '@/lib/api-response';
 import type { CollectionItemWithValues, CollectionField } from '@/types';
+import {
+  PAGE_NAVIGATION_COLLECTION_ID,
+  PAGE_NAVIGATION_FIELDS,
+  buildPageNavigationCollectionItems,
+} from '@/lib/page-navigation';
+import { getAllPages } from '@/lib/repositories/pageRepository';
+import { getAllPageFolders } from '@/lib/repositories/pageFolderRepository';
+import { getAllCollections } from '@/lib/repositories/collectionRepository';
 
 // Disable caching for this route
 export const dynamic = 'force-dynamic';
@@ -56,6 +64,70 @@ export async function GET(
       } catch {
         // Ignore malformed filter param
       }
+    }
+
+    if (id === PAGE_NAVIGATION_COLLECTION_ID) {
+      const pages = await getAllPages({ is_published: false });
+      const folders = await getAllPageFolders({ is_published: false });
+
+      const collectionIds = Array.from(new Set(
+        pages
+          .filter(page => page.settings?.dropdown_mode === 'collection_items' && page.settings?.dropdown_collection_id)
+          .map(page => page.settings?.dropdown_collection_id)
+          .filter((value): value is string => Boolean(value))
+      ));
+
+      const allCollections = collectionIds.length > 0
+        ? await getAllCollections({ is_published: false, deleted: false })
+        : [];
+
+      const matchingCollections = allCollections.filter(collection => collectionIds.includes(collection.id));
+      const collectionFieldsByCollectionId: Record<string, CollectionField[]> = {};
+      const collectionItemsByCollectionId: Record<string, CollectionItemWithValues[]> = {};
+
+      await Promise.all(matchingCollections.map(async (collection) => {
+        collectionFieldsByCollectionId[collection.id] = await getFieldsByCollectionId(collection.id, false, { excludeComputed: true });
+        const { items } = await getItemsWithValues(collection.id, false, undefined);
+        collectionItemsByCollectionId[collection.id] = items;
+      }));
+
+      let items = buildPageNavigationCollectionItems({
+        pages,
+        folders,
+        target: 'nav',
+        collections: matchingCollections,
+        collectionFieldsByCollectionId,
+        collectionItemsByCollectionId,
+      });
+
+      if (search) {
+        const needle = search.toLowerCase();
+        items = items.filter(item => {
+          const label = String(item.values[PAGE_NAVIGATION_FIELDS[0].id] || '').toLowerCase();
+          const url = String(item.values[PAGE_NAVIGATION_FIELDS[1].id] || '').toLowerCase();
+          return label.includes(needle) || url.includes(needle);
+        });
+      }
+
+      if (sortBy && sortBy !== 'none' && sortBy !== 'random' && sortBy !== 'manual') {
+        items = [...items].sort((a, b) => String(a.values[sortBy] || '').localeCompare(String(b.values[sortBy] || '')) * (sortOrder === 'desc' ? -1 : 1));
+      } else if (sortBy === 'random') {
+        items = [...items].sort(() => Math.random() - 0.5);
+      } else {
+        items = [...items].sort((a, b) => a.manual_order - b.manual_order);
+      }
+
+      if (dynamicFilters.length > 0) {
+        items = items.filter(item => dynamicFilters.every(filter => {
+          const fieldValue = String(item.values[filter.fieldId] ?? '').toLowerCase();
+          const filterValue = String(filter.value).toLowerCase();
+          return applyDynamicFilter(fieldValue, filterValue, filter.operator);
+        }));
+      }
+
+      const total = items.length;
+      const paginatedItems = items.slice(offset, offset + limit);
+      return noCache({ data: { items: paginatedItems, total, page, limit } });
     }
 
     // When sorting by a specific field value, push the sort + pagination down
