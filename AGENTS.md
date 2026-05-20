@@ -95,6 +95,12 @@ Full details are in `.cursorrules`. Key points:
 - Maintain heading hierarchy (h1 → h2 → h3)
 - Ensure keyboard navigation (Tab, Enter, Esc)
 
+### Custom Code & Components
+- When targeting rendered layers from page `custom_code`, do **NOT** rely on internal component `layer.id` / `data-layer-id` values from the component source.
+- Component instances can rewrite or derive runtime layer IDs, so selectors based on source layer IDs are not stable across pages.
+- For DOM targeting, animations, marquees, hover effects, or external scripts, prefer stable `html_id` values or explicit custom attributes set intentionally for runtime selection.
+- If custom code must target repeated component structure, anchor it to stable HTML IDs and local DOM relationships, not to source component layer IDs.
+
 ### Input Sanitization (for design properties)
 - Use `removeSpaces()` from `@/lib/utils` for all Tailwind design property handlers
 - Use `useControlledInput` hook for input state management (auto-sanitizes)
