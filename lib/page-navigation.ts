@@ -15,6 +15,8 @@ export const PAGE_NAVIGATION_LABEL_FIELD_ID = '__page_navigation_label__';
 export const PAGE_NAVIGATION_URL_FIELD_ID = '__page_navigation_url__';
 export const PAGE_NAVIGATION_PARENT_FIELD_ID = '__page_navigation_parent__';
 export const PAGE_NAVIGATION_ORDER_FIELD_ID = '__page_navigation_order__';
+export const PAGE_NAVIGATION_HAS_CHILDREN_FIELD_ID = '__page_navigation_has_children__';
+export const PAGE_NAVIGATION_CHILDREN_COUNT_FIELD_ID = '__page_navigation_children_count__';
 
 export const PAGE_NAVIGATION_COLLECTION: Collection = {
   id: PAGE_NAVIGATION_COLLECTION_ID,
@@ -125,6 +127,42 @@ export const PAGE_NAVIGATION_FIELDS: CollectionField[] = [
     deleted_at: null,
     hidden: false,
     is_computed: false,
+    data: {},
+    is_published: true,
+  },
+  {
+    id: PAGE_NAVIGATION_HAS_CHILDREN_FIELD_ID,
+    name: 'Has Children',
+    key: 'has_children',
+    type: 'boolean',
+    default: null,
+    fillable: false,
+    order: 4,
+    collection_id: PAGE_NAVIGATION_COLLECTION_ID,
+    reference_collection_id: null,
+    created_at: '',
+    updated_at: '',
+    deleted_at: null,
+    hidden: false,
+    is_computed: true,
+    data: {},
+    is_published: true,
+  },
+  {
+    id: PAGE_NAVIGATION_CHILDREN_COUNT_FIELD_ID,
+    name: 'Children Count',
+    key: 'children_count',
+    type: 'number',
+    default: null,
+    fillable: false,
+    order: 5,
+    collection_id: PAGE_NAVIGATION_COLLECTION_ID,
+    reference_collection_id: null,
+    created_at: '',
+    updated_at: '',
+    deleted_at: null,
+    hidden: false,
+    is_computed: true,
     data: {},
     is_published: true,
   },
@@ -415,6 +453,7 @@ export function buildPageNavigationCollectionItems(
   const flattened: CollectionItemWithValues[] = [];
 
   const addItem = (item: PageNavigationItem, parentId: string | null, order: number) => {
+    const childrenCount = item.children.length;
     flattened.push({
       id: item.id,
       collection_id: PAGE_NAVIGATION_COLLECTION_ID,
@@ -430,6 +469,8 @@ export function buildPageNavigationCollectionItems(
         [PAGE_NAVIGATION_URL_FIELD_ID]: item.href,
         [PAGE_NAVIGATION_PARENT_FIELD_ID]: parentId || '',
         [PAGE_NAVIGATION_ORDER_FIELD_ID]: String(order),
+        [PAGE_NAVIGATION_HAS_CHILDREN_FIELD_ID]: childrenCount > 0 ? 'true' : 'false',
+        [PAGE_NAVIGATION_CHILDREN_COUNT_FIELD_ID]: String(childrenCount),
       },
     });
 

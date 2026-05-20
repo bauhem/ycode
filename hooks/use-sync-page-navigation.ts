@@ -5,11 +5,14 @@ import { usePagesStore } from '@/stores/usePagesStore';
 import { useCollectionsStore } from '@/stores/useCollectionsStore';
 import { useLocalisationStore } from '@/stores/useLocalisationStore';
 import {
+  PAGE_NAVIGATION_COLLECTION,
   PAGE_NAVIGATION_COLLECTION_ID,
+  PAGE_NAVIGATION_CHILDREN_COUNT_FIELD_ID,
+  PAGE_NAVIGATION_HAS_CHILDREN_FIELD_ID,
   PAGE_NAVIGATION_LABEL_FIELD_ID,
-  PAGE_NAVIGATION_URL_FIELD_ID,
   PAGE_NAVIGATION_PARENT_FIELD_ID,
   PAGE_NAVIGATION_ORDER_FIELD_ID,
+  PAGE_NAVIGATION_URL_FIELD_ID,
   buildPageNavigationCollectionItems,
 } from '@/lib/page-navigation';
 import type { CollectionItemWithValues } from '@/types';
@@ -30,6 +33,8 @@ const areNavigationItemsEqual = (a: CollectionItemWithValues[], b: CollectionIte
     if (valA[PAGE_NAVIGATION_URL_FIELD_ID] !== valB[PAGE_NAVIGATION_URL_FIELD_ID]) return false;
     if (valA[PAGE_NAVIGATION_PARENT_FIELD_ID] !== valB[PAGE_NAVIGATION_PARENT_FIELD_ID]) return false;
     if (valA[PAGE_NAVIGATION_ORDER_FIELD_ID] !== valB[PAGE_NAVIGATION_ORDER_FIELD_ID]) return false;
+    if (valA[PAGE_NAVIGATION_HAS_CHILDREN_FIELD_ID] !== valB[PAGE_NAVIGATION_HAS_CHILDREN_FIELD_ID]) return false;
+    if (valA[PAGE_NAVIGATION_CHILDREN_COUNT_FIELD_ID] !== valB[PAGE_NAVIGATION_CHILDREN_COUNT_FIELD_ID]) return false;
   }
   return true;
 };
@@ -84,16 +89,24 @@ export function useSyncPageNavigation() {
       const currentItems = useCollectionsStore.getState().items[PAGE_NAVIGATION_COLLECTION_ID] || [];
 
       if (!areNavigationItemsEqual(currentItems, navigationItems)) {
-        useCollectionsStore.setState((state) => ({
-          items: {
-            ...state.items,
-            [PAGE_NAVIGATION_COLLECTION_ID]: navigationItems,
-          },
-          itemsTotalCount: {
-            ...state.itemsTotalCount,
-            [PAGE_NAVIGATION_COLLECTION_ID]: navigationItems.length,
-          }
-        }));
+        useCollectionsStore.setState((state) => {
+          const hasNavCollection = state.collections.some(
+            (c) => c.id === PAGE_NAVIGATION_COLLECTION_ID
+          );
+          return {
+            items: {
+              ...state.items,
+              [PAGE_NAVIGATION_COLLECTION_ID]: navigationItems,
+            },
+            itemsTotalCount: {
+              ...state.itemsTotalCount,
+              [PAGE_NAVIGATION_COLLECTION_ID]: navigationItems.length,
+            },
+            collections: hasNavCollection
+              ? state.collections
+              : [...state.collections, PAGE_NAVIGATION_COLLECTION],
+          };
+        });
       }
     } catch (err) {
       console.error('[SYNC-PAGE-NAV] Failed to regenerate page navigation collection items:', err);
