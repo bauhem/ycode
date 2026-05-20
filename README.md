@@ -14,6 +14,8 @@ Ycode is a visual website builder and CMS designed for creating and managing web
 
 Ycode has extensive [documentation][docs]. We actively maintain and improve it, so if something is unclear or incomplete, feel free to open an issue. We welcome any feedback that helps make the docs better.
 
+For agent workflows in this fork, see the local builder note: [YCode Builder Workflow](docs/YCODE_WORKFLOW.md).
+
 ## Setting Up Ycode Open Source
 
 To self-host Ycode you will need:
