@@ -185,6 +185,68 @@ Rules:
 
 ---
 
+## 🌐 YCode MCP — Localization (Translations)
+
+### Workflow: Translating Component Texts
+
+When asked to translate texts of a **component** (e.g. Home Hero), follow this workflow:
+
+**Step 1 — Identify the component and its texts**
+
+```bash
+# List all components, locales, and the target page's layers
+ycode_list_components
+ycode_list_locales
+ycode_get_layers(page_id)
+```
+
+The page layer tree shows which `componentId` is used. Then call `ycode_get_component(component_id)` to inspect all text layers.
+
+**Step 2 — Check existing translations**
+
+```bash
+ycode_list_translations(locale_id)  # e.g. English locale ID
+```
+
+Translations for components use `source_type: "component"` and `source_id: <component_id>`.
+
+**Step 3 — Translate using batch upsert**
+
+Use `ycode_batch_set_translations` — one call upserts all translations at once:
+
+```json
+{
+  "locale_id": "<english_locale_id>",
+  "source_type": "component",
+  "source_id": "<component_id>",
+  "content_key": "layer:<layer_id>:text",
+  "content_type": "text",
+  "content_value": "English translation",
+  "is_completed": true
+}
+```
+
+Key rules:
+- `content_key` format: `layer:<layer_id>:text`
+- `source_type`: `"component"` (for component texts), `"page"` (for page texts), `"cms"` (for CMS fields)
+- `content_type`: `"text"` for simple text, `"richtext"` for rich text (JSON string)
+- **Always batch**: group all translations into a single `ycode_batch_set_translations` call
+- **"MODERN" / "SOLUTION"** — marquee/branding texts already in English: skip them
+- **"Discover more"** — already English: still add the translation entry for completeness
+
+### Current Locales
+
+| ID | Code | Label | Default |
+|---|---|---|---|
+| `99990e19-dfd1-44f4-8a7d-e22d89305e3f` | fr | Français | ✅ |
+| `a28a2581-def2-4a6f-8f2e-478f61143f0d` | en | English | |
+
+### UI Verification
+
+After saving, verify translations at `http://localhost:3002/ycode/localization?locale=en`.
+
+---
+
 ## 🔧 Environment
 
 - **Local dev**: `npm run dev` (starts SSH tunnel to VPS + Next.js on port 3002)
