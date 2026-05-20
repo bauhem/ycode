@@ -2,10 +2,10 @@
 const sseUrl = 'https://admin.bauhem.com/ycode/mcp/ymc_52a82598e8378c031abad8000c08638a92f62115e464ba49';
 
 async function main() {
-  const { SSEClientTransport } = await import('@modelcontextprotocol/sdk/client/sse.js');
+  const { StreamableHTTPClientTransport } = await import('@modelcontextprotocol/sdk/client/streamableHttp.js');
   const { StdioServerTransport } = await import('@modelcontextprotocol/sdk/server/stdio.js');
 
-  const transport = new SSEClientTransport(new URL(sseUrl));
+  const transport = new StreamableHTTPClientTransport(new URL(sseUrl));
   const stdioTransport = new StdioServerTransport();
 
   await transport.start();
