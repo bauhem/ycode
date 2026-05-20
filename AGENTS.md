@@ -247,6 +247,108 @@ After saving, verify translations at `http://localhost:3002/ycode/localization?l
 
 ---
 
+## 🔄 Webflow DevLink → YCode Native Component Workflow
+
+### Critical Rule: Read EVERY source file upfront
+
+Before touching any MCP tool, you MUST read ALL of these source files:
+1. **Main component** (e.g. `sections/OverviewService.tsx`) — element tree, props, children
+2. **Every sub-component** used (e.g. `buttons/PrimaryButton.tsx`, `cards/CardServiceItem.tsx`, `label/Label.tsx`) — each has its own structure, styles, and interactions
+3. **`css/variables.css`** — ALL design tokens (colors, radii, spacing, typography)
+4. **`css/classes.css`** — ALL class definitions for every class referenced in components
+
+Skipping any of these WILL produce incorrect results.
+
+### Step 1 — Map design tokens to YCode color variables
+
+Use `ycode_list_color_variables` to see current variables, then `ycode_update_color_variable` to match Webflow's `variables.css`. Always verify exact values from the source file — never guess or assume.
+
+**Color variable references in design properties:**
+- Use format `"color:var(--variable-uuid)"` — e.g. `"color:var(--278bfea0-7517-41b4-a075-0bfcaab8788a)"`
+- Get the variable UUID from `ycode_list_color_variables`
+
+### Step 2 — Create/update component using MCP tools
+
+Use `ycode_create_component` then `ycode_update_component_layers` with batch operations.
+
+**MCP tool capabilities for component layers:**
+
+| Operation | Supported | Notes |
+|---|---|---|
+| `add_layer` | ✅ | All templates |
+| `update_design` | ✅ | Desktop only — NO `ui_state`, NO `breakpoint` params |
+| `update_text` | ✅ | |
+| `delete_layer` | ✅ | |
+| `move_layer` | ✅ | |
+| `link_variable` | ✅ | For component variables |
+| `update_settings` | ❌ | Tag, html_id, custom_attributes — use SQL |
+| Hover states (`ui_state`) | ❌ | Use SQL or page CSS workaround |
+| Breakpoint designs | ❌ | Use SQL |
+| CMS field bindings | ❌ | Use SQL `UPDATE components SET layers = ...` |
+
+For **page-level** operations, `ycode_batch_operations` is preferred.
+
+### Step 3 — Apply exact Webflow styles per layer
+
+For every layer, cross-reference against Webflow's `classes.css`:
+
+| Webflow | YCode property |
+|---|---|
+| `border-radius: var(--radius-medium)` | `borderRadius: "50px"` |
+| `letter-spacing: var(--letter-spacing-xxxs)` | `letterSpacing: "-0.8px"` |
+| `background-color: var(--black)` | `backgroundColor: "color:var(--black-uuid)"` |
+| `padding: 10px 30px` | `paddingTop/Bottom: "10px"`, `paddingLeft/Right: "30px"` |
+
+**Hover states workaround** (MCP has no `ui_state` support for components):
+1. Add Tailwind `hover:` classes via SQL: `hover:bg-transparent hover:scale-[0.95] hover:text-[#000000]`
+2. Or add page-level `custom_code.head` CSS targeting the layer
+
+Button from `classes.css`:
+```css
+.primary-button {
+    padding: 10px 30px;
+    border: 1px solid var(--black);
+    border-radius: 50px /* radius-medium */;
+    background-color: var(--black);
+    color: var(--white);
+    font-size: 16px;
+    font-weight: 500;
+    letter-spacing: -0.8px;
+}
+.primary-button:hover {
+    background-color: transparent;
+    transform: scale(0.95);
+    color: var(--black);
+}
+```
+
+### Step 4 — Reimplement interactions
+
+| Webflow event | YCode approach |
+|---|---|
+| `MOUSE_OVER` on card → animate underline | CSS `:hover` on parent + child transition, or `custom_code` JS |
+| `CLICK` menu → toggle panel | YCode built-in `interactions` on the layer |
+| Marquee infinite scroll | `custom_code` JS with `requestAnimationFrame` |
+| `SCROLL_INTO_VIEW` fade-in | Not natively supported — `custom_code` IntersectionObserver |
+
+### Step 5 — Verify fidelity before proceeding
+
+- [ ] Colors match `variables.css` exactly (use CSS variable refs, not hardcoded hex)
+- [ ] Border-radius matches (`--radius-small: 10px`, `--radius-medium: 50px`, `--radius-large: 50%`)
+- [ ] Typography matches (size, weight, line-height, letter-spacing, family)
+- [ ] Hover/active states present and working
+- [ ] Collection items render with CMS data
+- [ ] Card items are wrapped in `<a>` tags if clickable in Webflow
+- [ ] Responsive breakpoints (stack grid on mobile, hide elements)
+
+### Step 6 — SQL fallback (only when MCP lacks features)
+
+Reserved for: `update_settings`, hover states on component layers, breakpoint designs on components, CMS field bindings.
+
+Use the database function `ycode_update_layer_recursive` for JSONB traversal. Always set `is_published = false` and `content_hash = NULL` after SQL edits.
+
+---
+
 ## 🔧 Environment
 
 - **Local dev**: `npm run dev` (starts SSH tunnel to VPS + Next.js on port 3002)

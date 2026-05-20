@@ -123,6 +123,7 @@
     "@types/prismjs": "^1.26.6",
     "@types/react": "^19",
     "@types/react-dom": "^19",
+    "@webflow/webflow-cli": "^1.22.0",
     "eslint": "^9.0.0",
     "eslint-config-next": "^16.1.6",
     "eslint-plugin-react": "^7.37.5",

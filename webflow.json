@@ -1,0 +1,18 @@
+{
+  "telemetry": {
+    "global": {
+      "allowTelemetry": true,
+      "lastPrompted": 1779319255825,
+      "version": "1.22.0"
+    }
+  },
+  "siteId": "69df8c329a319a40584b95e1",
+  "devlink-export": {
+    "rootDir": "./webflow",
+    "components": ".*",
+    "componentGroups": ".*",
+    "ts": true,
+    "cssScopes": true,
+    "relativeHrefRoot": "/"
+  }
+}
