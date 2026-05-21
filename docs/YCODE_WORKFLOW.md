@@ -99,6 +99,26 @@ A component is considered complete only when all of these are true:
 - it is present in the target page tree, not just in the component library
 - it has been validated in the browser, not only through database inspection
 
+## Component variants pattern
+
+YCode component variants live in the component record, not as separate components.
+
+- `components.variants` is an array of variant objects: `{ id, name, layers }`.
+- Each variant owns its own complete `layers` tree. Duplicated variants usually generate new layer IDs, so do not assume child layer IDs match across variants.
+- `components.layers` is the legacy/default fallback tree. The renderer prefers `components.variants`; when no `componentVariantId` is set, it falls back to `variants[0]`.
+- Component variables are shared at the component level in `components.variables`. Each variant layer should link to the same variable IDs for the same editable contract.
+- A component instance selects a variant with `layer.componentVariantId`.
+- A nested component can expose its variant choice through a parent variable using `layer.componentVariantVariableId` and `componentOverrides.variant`.
+- When using SQL, update the exact affected variant under `components.variants[N].layers`; do not overwrite `variants[0]` or rebuild the whole `variants` array unless that is explicitly intended.
+- If the default variant structure changes through SQL, keep `components.layers` and `components.variants[0].layers` in sync for legacy fallback/editor safety.
+- Clear `content_hash` after SQL changes so thumbnails/rendered component caches can refresh.
+
+Example from `Button Link Arrow Dark`:
+
+- `Default` uses black text/icon styling.
+- `White` is a second entry in `components.variants` with its own generated layer IDs and white icon/text overrides.
+- Both variants reuse the same `Button Text` and `Button Link` variable IDs, so instances can switch variants without losing text/link overrides.
+
 ## CMS text binding pattern
 
 When building collection-backed text layers, preserve the same data shape the editor creates from `Element > Content > Insert Variable`.
@@ -108,7 +128,7 @@ When building collection-backed text layers, preserve the same data shape the ed
 - Put the field reference inside a Tiptap `dynamicVariable` node.
 - Include `source: "collection"`, `collection_layer_id`, `field_id`, `field_type`, and `relationships: []` in the variable data.
 - Do not store text as a direct `variables.text.type = "field"`; that breaks the editor contract and can make future variable insertion/editing unreliable.
-- If SQL is required, update both `components.layers` and `components.variants[0].layers`, clear `content_hash`, then verify recursively that there are no direct field text variables left.
+- If SQL is required, update the affected variant layer trees in `components.variants`. For the default variant, also keep `components.layers` in sync. Clear `content_hash`, then verify recursively that there are no direct field text variables left.
 
 Minimal shape:
 
@@ -174,3 +194,55 @@ For navbars, the most reliable shape is:
 - utility group or CTA as the final block
 
 That pattern keeps the desktop version stable and makes the tablet version predictable because the same logical blocks can be restacked without rewriting the component.
+
+## Localization publish verification
+
+The builder/localization UI and the public frontend do not read the same translation snapshot.
+
+- The builder and preview read draft records (`is_published = false`) and can surface incomplete translations while editing.
+- The public frontend (`/en`, `/en/...`) reads published records only (`is_published = true`).
+- Public rendering also ignores translations where `is_completed` is false or `content_value` is empty.
+- `ycode_batch_set_translations` creates or updates draft translations. Those values are not visible on the public frontend until the site is published.
+- Do not call `ycode_publish` automatically. Ask for explicit confirmation before publishing.
+
+When `/en` shows a mix of English and French, do not assume the renderer is broken. First check the translation state:
+
+```sql
+select is_published, source_type, source_id, count(*)
+from translations
+where locale_id = '<english-locale-id>'
+  and deleted_at is null
+group by is_published, source_type, source_id
+order by source_type, source_id, is_published;
+```
+
+For component text specifically, confirm that every component used by the page has a published, completed row for each translatable layer:
+
+```sql
+select source_id,
+  count(*) filter (where is_completed) as completed,
+  count(*) filter (where not is_completed) as incomplete,
+  count(*) as total
+from translations
+where locale_id = '<english-locale-id>'
+  and source_type = 'component'
+  and is_published = true
+  and deleted_at is null
+group by source_id
+order by source_id;
+```
+
+Validation sequence after translating:
+
+1. Verify draft translations in `http://localhost:3002/ycode/localization?locale=en`.
+2. Verify the page composition with `ycode_get_layers(page_id)` and note each `componentId`.
+3. Check that those component IDs have draft translations marked `is_completed = true`.
+4. Publish only after user confirmation.
+5. Re-test `http://localhost:3002/en` and any translated slugs with Playwright or the browser.
+
+If the builder looks translated but `/en` does not, the usual causes are:
+
+- translations exist only as draft rows
+- translations are published but `is_completed = false`
+- translations were created under `source_type: "page"` while the text lives inside a component and must use `source_type: "component"`
+- the `source_id` is not the master `componentId` used by the page instance

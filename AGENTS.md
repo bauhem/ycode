@@ -248,6 +248,48 @@ Key rules:
 
 After saving, verify translations at `http://localhost:3002/ycode/localization?locale=en`.
 
+### Public Frontend Verification
+
+The localization editor and the public frontend can legitimately disagree if translations have not been published.
+
+Runtime rules:
+- Builder/localization and preview use draft translations (`is_published = false`) and may show incomplete values during editing.
+- Public pages such as `/en` use published translations only (`is_published = true`).
+- Public pages ignore translation rows unless `is_completed = true` and `content_value` is non-empty.
+- MCP translation writes are draft changes; they must be published before the public frontend can use them.
+- Never run `ycode_publish` unless the user explicitly confirms publishing.
+
+When `/en` still shows French text while the builder looks English:
+- First inspect whether the missing translations are draft-only or incomplete. Do not change renderer code before checking data state.
+- For component instances, verify the page layer tree with `ycode_get_layers(page_id)` and confirm translations use `source_type: "component"` with `source_id: <componentId>`.
+- Check published/completed counts for the affected component IDs in the `translations` table.
+- After publishing with user approval, re-test the public URL (`http://localhost:3002/en`) and not only the localization UI.
+
+Useful diagnostic SQL:
+
+```sql
+select is_published, source_type, source_id, count(*)
+from translations
+where locale_id = '<english-locale-id>'
+  and deleted_at is null
+group by is_published, source_type, source_id
+order by source_type, source_id, is_published;
+```
+
+```sql
+select source_id,
+  count(*) filter (where is_completed) as completed,
+  count(*) filter (where not is_completed) as incomplete,
+  count(*) as total
+from translations
+where locale_id = '<english-locale-id>'
+  and source_type = 'component'
+  and is_published = true
+  and deleted_at is null
+group by source_id
+order by source_id;
+```
+
 ---
 
 ## 🔄 Webflow DevLink → YCode Native Component Workflow
