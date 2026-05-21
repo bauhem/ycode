@@ -83,3 +83,6 @@ release.sh
 /bauhem-2026-54564a.webflow
 /bauhem-2026
 /webflow
+.kilo/agent-manager.json
+inspect_db.ts
+webflow.json
