@@ -11,8 +11,7 @@ interface LocaleSelectorProps {
 
 /**
  * Client-side locale selector for generated pages
- * Renders an invisible native select that only covers the locale pill itself,
- * not any surrounding layout siblings.
+ * Renders an invisible select element that overlays the parent container
  */
 export default function LocaleSelector({
   currentLocale,
@@ -48,10 +47,8 @@ export default function LocaleSelector({
         position: 'absolute',
         top: 0,
         left: 0,
-        right: 0,
-        bottom: 0,
-        maxWidth: '100%',
-        maxHeight: '100%',
+        width: '100%',
+        height: '100%',
         opacity: 0,
         cursor: 'pointer',
       }}
