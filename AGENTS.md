@@ -369,6 +369,10 @@ Use the database function `ycode_update_layer_recursive` for JSONB traversal. Al
    - **Bug**: When fetching EAV values for virtual items (like navigation links starting with `__page_navigation_parent__`), Postgres throws `invalid input syntax for type uuid` because the database `item_id` and `field_id` columns are strictly UUID-typed.
    - **Fix**: Apply a UUID regex check (`/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i`) to filter `item_ids` and `fieldIds` before running queries in `getValuesByItemIds` (`lib/repositories/collectionItemValueRepository.ts`).
 
+5. **HTML Nesting Repair (Nested `<p>` tags) → Style inheritance lost**
+   - **Bug**: When a text layer's `settings.tag` is set to `"p"` (paragraph), and it has a linked rich text variable (`dynamic_rich_text`), Tiptap renders its own `<p>` tags inside. This creates invalid HTML nesting (`<p><p>...</p></p>`). The browser's automatic DOM repair splits/empties the outer `<p>` container, which means all parent typography classes (like `text-[#676767]` and `text-[16px]`) are completely lost or ignored on the actual text node.
+   - **Workaround**: Never use `"p"` as the outer layer's HTML tag for rich text variables. Always set `settings.tag: "div"` (or leave empty to fallback to div) so that the Tiptap `<p>` nests inside validly and inherits all parent styles properly.
+
 ---
 
 ## 🔧 Environment
