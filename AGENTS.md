@@ -14,8 +14,9 @@ Read the file: `.cursorrules` at the root of the project.
 1. **NEVER modify Ycode source code without explicit user authorization.**
 2. **NEVER make assumptions** — if intent is unclear, ask first.
 3. **ALWAYS follow the coding conventions** in `.cursorrules`.
-4. **ALWAYS commit and push** changes after completing a task.
+4. **NEVER commit, push, or publish** changes (including code, git commits, or using publishing tools) unless explicitly requested by the user.
 5. **NEVER use relative deep paths** — use `@/` aliases for all imports outside the current directory.
+6. **NEVER overwrite user modifications on components or pages via broad SQL updates.** If the user has made manual edits on the Canvas, do not replace the entire `layers` or `variants` columns. Use targeted SQL (`jsonb_set`) or API tools to modify specific nodes, or request permission.
 
 ---
 
@@ -150,6 +151,8 @@ Rules:
 
 ## 🚫 What NOT to Do
 
+- Do NOT use HTML embed blocks, custom <style> tags, or hardcoded raw CSS/HTML snippets for designs, hover states, transitions, or animations. ALWAYS use native Tailwind utility classes (such as `group`, `group-hover:`, `transition-`, `duration-`, `scale-`, `rotate-`, etc.) to build clean, native, and fully customizable visual styles inside the builder.
+- Do NOT run any git commit, git push, or ycode_publish commands unless explicitly requested by the user
 - Do NOT add `yarn.lock` (project uses npm)
 - Do NOT commit `.playwright-mcp/`, `.opencode/`, `.specify/` (in `.gitignore`)
 - Do NOT write debug/test scripts in `/scripts/` — delete them when done
@@ -258,6 +261,10 @@ Before touching any MCP tool, you MUST read ALL of these source files:
 4. **`css/classes.css`** — ALL class definitions for every class referenced in components
 
 Skipping any of these WILL produce incorrect results.
+
+### Critical Rule: Detect and Implement CMS Collection Lists
+- DevLink exports CMS lists as static elements or placeholders (`<NotSupported _atom="Collection List" />`). **Do NOT make components static if they are meant to display dynamic data (like Blogs, Services, Testimonials, Team, etc.).**
+- ALWAYS detect if the component needs a CMS list, look up the target collection (using `ycode_list_collections`), and implement a native YCode Collection List. Connect nested elements (headings, paragraphs, images) to their respective CMS fields dynamically.
 
 ### Step 1 — Map design tokens to YCode color variables
 
@@ -372,6 +379,10 @@ Use the database function `ycode_update_layer_recursive` for JSONB traversal. Al
 5. **HTML Nesting Repair (Nested `<p>` tags) → Style inheritance lost**
    - **Bug**: When a text layer's `settings.tag` is set to `"p"` (paragraph), and it has a linked rich text variable (`dynamic_rich_text`), Tiptap renders its own `<p>` tags inside. This creates invalid HTML nesting (`<p><p>...</p></p>`). The browser's automatic DOM repair splits/empties the outer `<p>` container, which means all parent typography classes (like `text-[#676767]` and `text-[16px]`) are completely lost or ignored on the actual text node.
    - **Workaround**: Never use `"p"` as the outer layer's HTML tag for rich text variables. Always set `settings.tag: "div"` (or leave empty to fallback to div) so that the Tiptap `<p>` nests inside validly and inherits all parent styles properly.
+
+6. **Component Canvas rendering loads layers from the `variants` column**
+   - **Bug**: If you update a component's structural `layers` via SQL directly but forget to update the nested layers inside the `variants` column (specifically `components.variants[0].layers`), the component will render as completely blank/empty on the Editor Canvas. (Root cause: `LayerRenderer.tsx:1198` loads layers from the active variant schema, not the main `layers` array column).
+   - **Workaround**: Always synchronize the `variants` JSON column dynamically when editing a component's structure via SQL: `UPDATE components SET variants = jsonb_build_array(jsonb_build_object('id', 'cmpvar-variants-id', 'name', 'Default', 'layers', layers)) ...`
 
 ---
 
