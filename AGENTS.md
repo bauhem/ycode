@@ -266,6 +266,60 @@ Skipping any of these WILL produce incorrect results.
 - DevLink exports CMS lists as static elements or placeholders (`<NotSupported _atom="Collection List" />`). **Do NOT make components static if they are meant to display dynamic data (like Blogs, Services, Testimonials, Team, etc.).**
 - ALWAYS detect if the component needs a CMS list, look up the target collection (using `ycode_list_collections`), and implement a native YCode Collection List. Connect nested elements (headings, paragraphs, images) to their respective CMS fields dynamically.
 
+### Critical Rule: Preserve CMS Text Binding Contracts
+- `Element > Content > Insert Variable` is powered by `fieldGroups`, which are built from ancestor layers that have `variables.collection`. A text layer must be a descendant of the correct collection layer, otherwise the sidebar has no collection fields to show.
+- For text/heading layers, **never** bind CMS text by setting `variables.text` directly to `{ type: "field", data: ... }`. The sidebar editor expects text content to be a `dynamic_rich_text` value containing an inline `dynamicVariable` node.
+- The inline variable must include `source: "collection"`, `collection_layer_id: <ancestor collection layer id>`, `field_id`, `field_type`, and `relationships: []` (or the nested relationship path). This is what `buildFieldVariableData()` creates when users insert a variable manually.
+- If you write CMS text bindings through SQL, update both `components.layers` and `components.variants[0].layers`, then set `content_hash = NULL`. Verify with a recursive SELECT that no text layer has `variables.text.type = "field"`.
+
+Canonical CMS text binding shape:
+
+```json
+{
+  "variables": {
+    "text": {
+      "type": "dynamic_rich_text",
+      "data": {
+        "content": {
+          "type": "doc",
+          "content": [
+            {
+              "type": "paragraph",
+              "content": [
+                {
+                  "type": "dynamicVariable",
+                  "attrs": {
+                    "label": "Author",
+                    "variable": {
+                      "type": "field",
+                      "data": {
+                        "source": "collection",
+                        "field_id": "<collection-field-id>",
+                        "field_type": "text",
+                        "relationships": [],
+                        "collection_layer_id": "<ancestor-collection-layer-id>"
+                      }
+                    }
+                  }
+                }
+              ]
+            }
+          ]
+        }
+      }
+    }
+  }
+}
+```
+
+### Pattern: CMS Tabs Using Native YCode Slider
+- YCode does not have a native tabs element. For Webflow tabs/testimonials/carousels, use a native YCode `slider` layer as the content mechanism and build the tab buttons as a separate CMS collection list.
+- Use two collection-backed templates from the same collection: one collection layer for tab buttons, and one collection layer inside the slider's `slides` wrapper for slide content.
+- Keep the actual content inside the native `slider` → `slides` tree so the slider remains visible and editable in the YCode layer tree. Do not replace it with a plain `div` plus a runtime-only Swiper instance.
+- Synchronize external tabs to the native Swiper instance exposed on the slider element (`sliderElement.swiper`) with scoped custom attributes such as `data-yc-role="tabs"`, `data-yc-role="tab"`, `data-yc-role="slider"`, and `data-yc-role="slide"`.
+- Layout must remain controlled by YCode Designer classes, not page custom CSS. If all slides appear at once, set native Tailwind/YCode classes on the slide item such as `w-full`, `max-w-full`, `!flex-[0_0_100%]`, and `!shrink-0`.
+- The synchronization script should only set ARIA state and call `swiper.slideTo(index)`. Active tab styling should use static YCode/Tailwind classes such as `aria-selected:*` and `group-aria-selected:*`.
+
 ### Step 1 — Map design tokens to YCode color variables
 
 Use `ycode_list_color_variables` to see current variables, then `ycode_update_color_variable` to match Webflow's `variables.css`. Always verify exact values from the source file — never guess or assume.

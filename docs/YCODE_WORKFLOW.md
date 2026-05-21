@@ -62,6 +62,7 @@ When you want a native YCode component to match a source component closely and r
    - locale or utility slots
    - CTA slot
    - icon slot for toggles and arrows
+   - CMS tabs built from native YCode sliders when the source uses tabbed testimonials or tabbed content
 
 4. Map responsive behavior explicitly.
    - desktop: horizontal navigation, dropdowns floating or anchored
@@ -97,6 +98,68 @@ A component is considered complete only when all of these are true:
 - it includes the same interactive affordances, such as dropdown arrows or menu toggles
 - it is present in the target page tree, not just in the component library
 - it has been validated in the browser, not only through database inspection
+
+## CMS text binding pattern
+
+When building collection-backed text layers, preserve the same data shape the editor creates from `Element > Content > Insert Variable`.
+
+- Put the text layer under an ancestor with `variables.collection` for the target collection.
+- Store text bindings as `variables.text.type = "dynamic_rich_text"`.
+- Put the field reference inside a Tiptap `dynamicVariable` node.
+- Include `source: "collection"`, `collection_layer_id`, `field_id`, `field_type`, and `relationships: []` in the variable data.
+- Do not store text as a direct `variables.text.type = "field"`; that breaks the editor contract and can make future variable insertion/editing unreliable.
+- If SQL is required, update both `components.layers` and `components.variants[0].layers`, clear `content_hash`, then verify recursively that there are no direct field text variables left.
+
+Minimal shape:
+
+```json
+{
+  "type": "dynamic_rich_text",
+  "data": {
+    "content": {
+      "type": "doc",
+      "content": [
+        {
+          "type": "paragraph",
+          "content": [
+            {
+              "type": "dynamicVariable",
+              "attrs": {
+                "label": "Field label",
+                "variable": {
+                  "type": "field",
+                  "data": {
+                    "source": "collection",
+                    "field_id": "<field-id>",
+                    "field_type": "text",
+                    "relationships": [],
+                    "collection_layer_id": "<collection-layer-id>"
+                  }
+                }
+              }
+            }
+          ]
+        }
+      ]
+    }
+  }
+}
+```
+
+## CMS tabs with native slider pattern
+
+YCode has no native tabs element. Rebuild tabbed CMS sections with a native YCode `slider` layer and separate CMS tab controls.
+
+- Create one collection-backed tab-list layer for the tab buttons.
+- Create one native `slider` layer with a `slides` child.
+- Put a collection-backed slide item inside `slides`, using the same CMS collection as the tab buttons.
+- Bind all text inside tabs and slides using the CMS text binding pattern above.
+- Add stable custom attributes, for example `data-yc-role="tabs"`, `data-yc-role="tab"`, `data-yc-role="slider"`, and `data-yc-role="slide"`.
+- Synchronize tab clicks to the native Swiper instance exposed by YCode on the slider DOM element, rather than creating a second runtime-only Swiper.
+- Keep the synchronization script minimal: set ARIA state and call `swiper.slideTo(index)`. Do not put layout, colors, hover states, or responsive rules in custom CSS.
+- If multiple slides are visible unintentionally, fix it with native YCode/Tailwind classes on the slide item, for example `w-full`, `max-w-full`, `!flex-[0_0_100%]`, and `!shrink-0`.
+- Style the active tab with static YCode/Tailwind classes, for example `aria-selected:*` on the tab and `group-aria-selected:*` on children.
+- Keep DOM selectors based on stable custom attributes or HTML IDs; do not rely on source `layer.id` values in rendered component instances.
 
 ## Navigation-specific pattern
 
