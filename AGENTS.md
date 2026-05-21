@@ -347,6 +347,28 @@ Reserved for: `update_settings`, hover states on component layers, breakpoint de
 
 Use the database function `ycode_update_layer_recursive` for JSONB traversal. Always set `is_published = false` and `content_hash = NULL` after SQL edits.
 
+### ⚠️ Known YCode Bugs & Workarounds (CRITICAL — read before styling any layer)
+
+1. **`clamp()` in font-size → invalid Tailwind class**
+   - `fontSize: "clamp(1.75rem, 5vw, 2.5rem)"` produces `text-clamp(1.75rem, 5vw, 2.5rem)` (invalid Tailwind, class ignored → no font-size applied)
+   - **Root cause**: `formatMeasurementClass()` in `tailwind-class-mapper.ts:167` falls through to `prefix-${value}` for values starting with non-digit, non-`-` characters. No brackets are added.
+   - **Workaround**: Set `fontSize` to the max pixel equivalent (e.g. `"40px"` for `2.5rem`), then add `#ov-heading { font-size: clamp(...) !important; }` in the page `custom_code.head`. Always set `settings.id` on the layer first for a stable CSS selector.
+   - **Fix target**: `formatMeasurementClass()` should detect functions like `clamp()`, `min()`, `max()`, `calc()` and wrap in `prefix-[...]`.
+
+2. **Component layer JSONB paths are fragile**
+   - Always verify paths by querying `customName` before writing updates.
+   - Use `ycode_update_layer_recursive` for settings-only changes; use manual `jsonb_set` with explicit paths for design/class changes.
+   - After any SQL update, immediately verify with a SELECT.
+   - Keep a hierarchy map of the component's layers with their ids for reference.
+
+3. **Component variables must have `default_value` for Editor rendering**
+   - **Bug**: Linked component variables with no `default_value` inside the component's `variables` schema array render as completely blank/invisible (empty strings) on the Editor Canvas, even if the layer's default JSON has text. (Root cause: `LayerRenderer.tsx:992` explicitly returns `''` when a linked variable has no default/override).
+   - **Workaround**: Always set `default_value` (e.g. a `dynamic_rich_text` or `link` object matching the schema) on variables in the `components.variables` column via SQL.
+
+4. **UUID syntax crash with non-UUID virtual items (EAV query)**
+   - **Bug**: When fetching EAV values for virtual items (like navigation links starting with `__page_navigation_parent__`), Postgres throws `invalid input syntax for type uuid` because the database `item_id` and `field_id` columns are strictly UUID-typed.
+   - **Fix**: Apply a UUID regex check (`/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i`) to filter `item_ids` and `fieldIds` before running queries in `getValuesByItemIds` (`lib/repositories/collectionItemValueRepository.ts`).
+
 ---
 
 ## 🔧 Environment

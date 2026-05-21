@@ -130,7 +130,11 @@ export async function getValuesByItemIds(
     throw new Error('Supabase client not configured');
   }
 
-  if (item_ids.length === 0) {
+  const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+  const validItemIds = item_ids.filter(id => uuidRegex.test(id));
+  const validFieldIds = fieldIds ? fieldIds.filter(id => uuidRegex.test(id)) : undefined;
+
+  if (validItemIds.length === 0) {
     return {};
   }
 
@@ -143,19 +147,19 @@ export async function getValuesByItemIds(
     const knex = await getKnexClient();
     let query = knex('collection_item_values')
       .select('item_id', 'field_id', 'value')
-      .whereIn('item_id', item_ids)
+      .whereIn('item_id', validItemIds)
       .andWhere('is_published', is_published)
       .whereNull('deleted_at');
-    if (fieldIds) {
-      query = query.whereIn('field_id', fieldIds);
+    if (validFieldIds) {
+      query = query.whereIn('field_id', validFieldIds);
     }
     allRows = await query;
   } catch {
     // Fallback: Supabase chunked reads
     const CHUNK_SIZE = 50;
     const chunks: string[][] = [];
-    for (let i = 0; i < item_ids.length; i += CHUNK_SIZE) {
-      chunks.push(item_ids.slice(i, i + CHUNK_SIZE));
+    for (let i = 0; i < validItemIds.length; i += CHUNK_SIZE) {
+      chunks.push(validItemIds.slice(i, i + CHUNK_SIZE));
     }
 
     const chunkResults = await Promise.all(
@@ -166,8 +170,8 @@ export async function getValuesByItemIds(
           .in('item_id', chunk)
           .eq('is_published', is_published)
           .is('deleted_at', null);
-        if (fieldIds) {
-          q = q.in('field_id', fieldIds);
+        if (validFieldIds) {
+          q = q.in('field_id', validFieldIds);
         }
         const { data, error } = await q.limit(5000);
 
