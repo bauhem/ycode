@@ -485,6 +485,19 @@ Use the database function `ycode_update_layer_recursive` for JSONB traversal. Al
 ## 🔧 Environment
 
 - **Local dev**: `npm run dev` (starts SSH tunnel to VPS + Next.js on port 3002)
-- **Supabase**: Self-hosted at `https://supabase.bauhem.com`
-- **Admin**: `https://admin.bauhem.com`
-- **MCP Bridge**: `scripts/mcp-ycode-bridge.js` (connects local agents to admin MCP server)
+- **Supabase**: Self-hosted at `https://supabase.bauhem.com` (running on VPS `51.222.143.231` via Docker)
+- **Admin/Builder**: `https://bauhem.com` (hosted on Netlify, connected to the VPS Supabase database)
+- **MCP Bridge**: `scripts/mcp-ycode-bridge.js` (connects local agents to the admin MCP server)
+
+### 🏗️ Connection & MCP Architecture Setup
+
+#### 1. Database & SSH Tunnel
+For local development, the PostgreSQL database is not exposed publicly. Running `npm run dev` executes:
+`ssh -i ~/.ssh/vps_ycode -o StrictHostKeyChecking=accept-new -L 5433:172.18.0.4:5432 ubuntu@51.222.143.231 -N -f`
+This creates a local SSH tunnel mapping port `5433` to port `5432` of the `supabase-db` container on the VPS. Both the local dev server (port `3002`) and the Netlify production server (`bauhem.com`) share this same database.
+
+#### 2. Deployed Admin & Serverless MCP
+The YCode administration panel is deployed on Netlify. Even though Netlify runs serverless functions with strict timeouts, the YCode MCP server is designed to work statelessly on serverless thanks to two settings in `app/(builder)/ycode/mcp/[token]/route.ts`:
+- `enableJsonResponse: true`: Ensures that tool call results are sent directly in the HTTP POST response body, rather than relying on a persistent SSE connection.
+- `autoInitialize`: When a serverless instance loses the in-memory session mapping, it programmatically performs a transient initialization handshake on the fly before processing the incoming tool request.
+
