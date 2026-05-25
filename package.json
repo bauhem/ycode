@@ -139,6 +139,8 @@
   },
   "optionalDependencies": {
     "@aws-sdk/client-s3": "^3.1048.0",
+    "@img/sharp-libvips-linux-x64": "1.2.4",
+    "@img/sharp-linux-x64": "0.34.5",
     "@tailwindcss/oxide-linux-x64-gnu": "4.1.18",
     "lightningcss-linux-x64-gnu": "1.30.2"
   },
