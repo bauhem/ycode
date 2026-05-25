@@ -15,13 +15,13 @@ Use this order for new components or page-level composition work:
 2. Keep the existing component untouched unless the user explicitly asks for a replacement.
 3. Add the new component instance to the target page or `body`.
 4. Validate the result in the browser on the authenticated builder UI.
-5. Only use direct database writes when the builder UI does not expose a needed operation.
+5. Only use direct database writes when the YCode 1.13.0 MCP/editor surface does not expose a needed operation or when repairing malformed legacy JSON.
 
 ## What to use for what
 
-- **YCode builder / MCP**: create components, edit layers, manage variables, and keep the editor tree in sync.
+- **YCode builder / MCP**: create components, edit layers, manage variables, variants, CMS, settings, form behavior, redirects, translations, interactions, animations, and keep the editor tree in sync.
 - **Browser**: verify the real editor UI, confirm the component is visible, and test insertion/selection behavior.
-- **Supabase / SQL**: persist builder state only when the operation is not exposed cleanly by the builder UI.
+- **Supabase / SQL**: repair builder state only when the operation is not exposed cleanly by MCP/editor tools.
 
 ## Rules
 
@@ -30,6 +30,8 @@ Use this order for new components or page-level composition work:
 - Keep responsive behavior in the component from the beginning.
 - Validate that the new instance is actually present in the page layer tree, not only in the component library.
 - Do not treat Supabase as the design tool. It is a persistence layer, not the editor.
+- In YCode 1.13.0, prefer native MCP component variants and interactions over duplicate components or custom scripts.
+- Never run static export, publish, or GitHub/S3/local export delivery without explicit user confirmation.
 
 ## Practical example
 
@@ -57,12 +59,14 @@ When you want a native YCode component to match a source component closely and r
    - mobile menu shell
 
 3. Recreate the dynamic structure before fine styling.
-   - collection-backed navigation
-   - nested dropdown collections
-   - locale or utility slots
-   - CTA slot
-   - icon slot for toggles and arrows
-   - CMS tabs built from native YCode sliders when the source uses tabbed testimonials or tabbed content
+    - collection-backed navigation
+    - nested dropdown collections
+    - locale or utility slots
+    - CTA slot
+    - icon slot for toggles and arrows
+    - CMS tabs built from native YCode sliders when the source uses tabbed testimonials or tabbed content
+    - native component variants for visual/state alternatives
+    - native interaction presets for source motion patterns
 
 4. Map responsive behavior explicitly.
    - desktop: horizontal navigation, dropdowns floating or anchored
@@ -96,6 +100,7 @@ A component is considered complete only when all of these are true:
 - it uses collections or variables where the source component does
 - it has the same desktop and tablet structure as the reference
 - it includes the same interactive affordances, such as dropdown arrows or menu toggles
+- source animations/interactions are implemented through native YCode interactions where possible
 - it is present in the target page tree, not just in the component library
 - it has been validated in the browser, not only through database inspection
 
@@ -103,13 +108,15 @@ A component is considered complete only when all of these are true:
 
 YCode component variants live in the component record, not as separate components.
 
+As of YCode 1.13.0, component variants are scriptable through MCP. Use MCP variant operations for normal variant work before considering SQL.
+
 - `components.variants` is an array of variant objects: `{ id, name, layers }`.
 - Each variant owns its own complete `layers` tree. Duplicated variants usually generate new layer IDs, so do not assume child layer IDs match across variants.
 - `components.layers` is the legacy/default fallback tree. The renderer prefers `components.variants`; when no `componentVariantId` is set, it falls back to `variants[0]`.
 - Component variables are shared at the component level in `components.variables`. Each variant layer should link to the same variable IDs for the same editable contract.
 - A component instance selects a variant with `layer.componentVariantId`.
 - A nested component can expose its variant choice through a parent variable using `layer.componentVariantVariableId` and `componentOverrides.variant`.
-- When using SQL, update the exact affected variant under `components.variants[N].layers`; do not overwrite `variants[0]` or rebuild the whole `variants` array unless that is explicitly intended.
+- When using SQL is unavoidable, update the exact affected variant under `components.variants[N].layers`; do not overwrite `variants[0]` or rebuild the whole `variants` array unless that is explicitly intended.
 - If the default variant structure changes through SQL, keep `components.layers` and `components.variants[0].layers` in sync for legacy fallback/editor safety.
 - Clear `content_hash` after SQL changes so thumbnails/rendered component caches can refresh.
 
@@ -128,7 +135,7 @@ When building collection-backed text layers, preserve the same data shape the ed
 - Put the field reference inside a Tiptap `dynamicVariable` node.
 - Include `source: "collection"`, `collection_layer_id`, `field_id`, `field_type`, and `relationships: []` in the variable data.
 - Do not store text as a direct `variables.text.type = "field"`; that breaks the editor contract and can make future variable insertion/editing unreliable.
-- If SQL is required, update the affected variant layer trees in `components.variants`. For the default variant, also keep `components.layers` in sync. Clear `content_hash`, then verify recursively that there are no direct field text variables left.
+- Prefer MCP CMS/rich-text binding tools where available. If SQL is required, update the affected variant layer trees in `components.variants`. For the default variant, also keep `components.layers` in sync. Clear `content_hash`, then verify recursively that there are no direct field text variables left.
 
 Minimal shape:
 
@@ -180,6 +187,25 @@ YCode has no native tabs element. Rebuild tabbed CMS sections with a native YCod
 - If multiple slides are visible unintentionally, fix it with native YCode/Tailwind classes on the slide item, for example `w-full`, `max-w-full`, `!flex-[0_0_100%]`, and `!shrink-0`.
 - Style the active tab with static YCode/Tailwind classes, for example `aria-selected:*` on the tab and `group-aria-selected:*` on children.
 - Keep DOM selectors based on stable custom attributes or HTML IDs; do not rely on source `layer.id` values in rendered component instances.
+
+## Native interactions and animations
+
+YCode 1.13.0 exposes layer interactions through MCP.
+
+- Use curated reveal, hover, click, parallax, stagger, and loop presets for common Webflow motion patterns.
+- Use raw layer interactions only when presets cannot reproduce the source behavior.
+- Keep layout, colors, and responsive behavior in native YCode design/classes; interactions should control motion/state only.
+- Use stable HTML IDs or custom attributes only when a custom script remains unavoidable.
+- Do not add page custom code for scroll reveals, hover effects, click toggles, or marquees until native interaction presets have been checked.
+
+## Static HTML export
+
+YCode 1.13.0 can export published pages as standalone HTML to local disk, S3, or GitHub.
+
+- Export uses published state, not draft Builder state.
+- Publish/export requires explicit user confirmation.
+- Before export, verify published routes, localized routes, SEO metadata, Tailwind output, forms, images/srcset, sliders, lightboxes, redirects, and any animations.
+- Record export target and verification evidence in the project/import ledger.
 
 ## Navigation-specific pattern
 

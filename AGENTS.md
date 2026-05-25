@@ -152,6 +152,7 @@ Rules:
 ## 🚫 What NOT to Do
 
 - Do NOT use HTML embed blocks, custom <style> tags, or hardcoded raw CSS/HTML snippets for designs, hover states, transitions, or animations. ALWAYS use native Tailwind utility classes (such as `group`, `group-hover:`, `transition-`, `duration-`, `scale-`, `rotate-`, etc.) to build clean, native, and fully customizable visual styles inside the builder.
+- For animations/interactions, prefer YCode 1.13.0 native MCP interaction tools and presets before any custom code fallback.
 - Do NOT run any git commit, git push, or ycode_publish commands unless explicitly requested by the user
 - Do NOT add `yarn.lock` (project uses npm)
 - Do NOT commit `.playwright-mcp/`, `.opencode/`, `.specify/` (in `.gitignore`)
@@ -294,6 +295,16 @@ order by source_id;
 
 ## 🔄 Webflow DevLink → YCode Native Component Workflow
 
+For general client Webflow migrations, first read `docs/WEBFLOW_TO_YCODE_NATIVE_IMPORT_PLAYBOOK.md`. That playbook is the agnostic golden path for using both DevLink and static Webflow exports, maintaining an import ledger, rebuilding native YCode resources idempotently, and handing off a responsive baseline to the designer.
+
+### YCode 1.13.0 MCP Baseline
+- The embedded MCP server has full editor parity as of YCode 1.13.0. Prefer MCP tools over SQL for layers, settings, CMS, component variants, variables, interactions, animations, rich text, redirects, form settings, translations, and static export workflows.
+- SQL is now a last-resort repair path only: use it when the active MCP surface cannot express the operation, or when repairing malformed legacy JSON. Always use targeted paths and verify before/after.
+- Component variants are scriptable. Do not create duplicate components for visual/state variants when a native component variant is the correct model.
+- Animations are scriptable. Use curated reveal, hover, click, parallax, stagger, and loop presets, or raw layer interactions for custom GSAP timelines.
+- CMS is expanded. Support option/count fields, metadata, sorting, manual order, references, dynamic page binding, and rich-text translations through MCP where available.
+- Static HTML export is available for published sites to local disk, S3, or GitHub, but never run publish/export without explicit user confirmation.
+
 ### Critical Rule: Read EVERY source file upfront
 
 Before touching any MCP tool, you MUST read ALL of these source files:
@@ -372,24 +383,14 @@ Use `ycode_list_color_variables` to see current variables, then `ycode_update_co
 
 ### Step 2 — Create/update component using MCP tools
 
-Use `ycode_create_component` then `ycode_update_component_layers` with batch operations.
+Use `ycode_create_component` / component MCP tools, then edit layers with batch operations. In YCode 1.13.0, component variants, settings, variables, CMS, interactions, rich text, and animations should be handled through MCP when the active tool surface exposes them.
 
-**MCP tool capabilities for component layers:**
-
-| Operation | Supported | Notes |
-|---|---|---|
-| `add_layer` | ✅ | All templates |
-| `update_design` | ✅ | Desktop only — NO `ui_state`, NO `breakpoint` params |
-| `update_text` | ✅ | |
-| `delete_layer` | ✅ | |
-| `move_layer` | ✅ | |
-| `link_variable` | ✅ | For component variables |
-| `update_settings` | ❌ | Tag, html_id, custom_attributes — use SQL |
-| Hover states (`ui_state`) | ❌ | Use SQL or page CSS workaround |
-| Breakpoint designs | ❌ | Use SQL |
-| CMS field bindings | ❌ | Use SQL `UPDATE components SET layers = ...` |
-
-For **page-level** operations, `ycode_batch_operations` is preferred.
+Operational rules:
+- Prefer MCP batch operations for both page and component edits.
+- Target a specific component variant when editing variant-specific structure or styling.
+- Use native rich-text and variant variable types instead of duplicating components.
+- Use MCP layer settings for tag, stable HTML IDs, custom attributes, form settings, redirects, and dynamic page bindings when available.
+- Use SQL only after verifying MCP lacks the operation or for legacy JSON repair.
 
 ### Step 3 — Apply exact Webflow styles per layer
 
@@ -402,9 +403,7 @@ For every layer, cross-reference against Webflow's `classes.css`:
 | `background-color: var(--black)` | `backgroundColor: "color:var(--black-uuid)"` |
 | `padding: 10px 30px` | `paddingTop/Bottom: "10px"`, `paddingLeft/Right: "30px"` |
 
-**Hover states workaround** (MCP has no `ui_state` support for components):
-1. Add Tailwind `hover:` classes via SQL: `hover:bg-transparent hover:scale-[0.95] hover:text-[#000000]`
-2. Or add page-level `custom_code.head` CSS targeting the layer
+**Hover/interaction rule:** use YCode 1.13.0 native interactions or Tailwind/YCode hover classes first. Add SQL classes or page custom code only when the native MCP/editor surface cannot express the behavior.
 
 Button from `classes.css`:
 ```css
@@ -429,10 +428,10 @@ Button from `classes.css`:
 
 | Webflow event | YCode approach |
 |---|---|
-| `MOUSE_OVER` on card → animate underline | CSS `:hover` on parent + child transition, or `custom_code` JS |
+| `MOUSE_OVER` on card → animate underline | Native hover classes or YCode interaction preset |
 | `CLICK` menu → toggle panel | YCode built-in `interactions` on the layer |
-| Marquee infinite scroll | `custom_code` JS with `requestAnimationFrame` |
-| `SCROLL_INTO_VIEW` fade-in | Not natively supported — `custom_code` IntersectionObserver |
+| Marquee infinite scroll | YCode loop animation preset or raw layer interaction; custom code only if needed |
+| `SCROLL_INTO_VIEW` fade-in | YCode reveal animation preset |
 
 ### Step 5 — Verify fidelity before proceeding
 
@@ -446,11 +445,13 @@ Button from `classes.css`:
 
 ### Step 6 — SQL fallback (only when MCP lacks features)
 
-Reserved for: `update_settings`, hover states on component layers, breakpoint designs on components, CMS field bindings.
+Reserved for operations still missing from the active MCP surface or for repairing malformed legacy component/page JSON.
 
-Use the database function `ycode_update_layer_recursive` for JSONB traversal. Always set `is_published = false` and `content_hash = NULL` after SQL edits.
+Use the database function `ycode_update_layer_recursive` for simple JSONB traversal when appropriate, or targeted `jsonb_set` paths for exact nodes. Always restrict draft-only edits with `is_published = false`, set `content_hash = NULL`, and verify both `components.layers` and the targeted variant when direct SQL is unavoidable.
 
-### ⚠️ Known YCode Bugs & Workarounds (CRITICAL — read before styling any layer)
+### ⚠️ Known/Legacy YCode Bugs & Workarounds (CRITICAL — verify before relying on them)
+
+These notes were observed during prior imports and may be fixed or partially mitigated by YCode 1.13.0. Before applying a workaround, first test the current MCP/editor behavior. Keep workarounds only when the bug is still reproducible in the active environment.
 
 1. **`clamp()` in font-size → invalid Tailwind class**
    - `fontSize: "clamp(1.75rem, 5vw, 2.5rem)"` produces `text-clamp(1.75rem, 5vw, 2.5rem)` (invalid Tailwind, class ignored → no font-size applied)
@@ -500,4 +501,3 @@ This creates a local SSH tunnel mapping port `5433` to port `5432` of the `supab
 The YCode administration panel is deployed on Netlify. Even though Netlify runs serverless functions with strict timeouts, the YCode MCP server is designed to work statelessly on serverless thanks to two settings in `app/(builder)/ycode/mcp/[token]/route.ts`:
 - `enableJsonResponse: true`: Ensures that tool call results are sent directly in the HTTP POST response body, rather than relying on a persistent SSE connection.
 - `autoInitialize`: When a serverless instance loses the in-memory session mapping, it programmatically performs a transient initialization handshake on the fly before processing the incoming tool request.
-
