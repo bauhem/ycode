@@ -342,17 +342,88 @@ export function resolveReferenceFieldsSync(
  * sharing one DOM node.
  */
 export function remapLayerIdsForCollectionItem(layer: Layer, suffix: string): Layer {
-  const originalIds = new Set<string>();
+  const idMap = new Map<string, string>();
   const collectIds = (l: Layer) => {
-    originalIds.add(l.id);
+    const remappedId = `${l.id}${suffix}`;
+    idMap.set(l.id, remappedId);
+
+    if (l._originalLayerId) {
+      idMap.set(l._originalLayerId, remappedId);
+    }
+
     l.children?.forEach(collectIds);
   };
   collectIds(layer);
+
+  const getRemappedId = (id: string): string | undefined => {
+    const direct = idMap.get(id);
+    if (direct) return direct;
+
+    for (const [sourceId, remappedId] of idMap.entries()) {
+      if (sourceId.endsWith(`-${id}`) || sourceId.includes(`-${id}-`)) {
+        return remappedId;
+      }
+    }
+
+    return undefined;
+  };
+
+  const remapCollectionLayerReferences = (value: unknown): unknown => {
+    if (Array.isArray(value)) {
+      return value.map(remapCollectionLayerReferences);
+    }
+
+    if (!value || typeof value !== 'object') {
+      return value;
+    }
+
+    const source = value as Record<string, unknown>;
+    let changed = false;
+    const result: Record<string, unknown> = {};
+
+    for (const [key, childValue] of Object.entries(source)) {
+      const remappedId = typeof childValue === 'string' ? getRemappedId(childValue) : undefined;
+      if (key === 'collection_layer_id' && remappedId) {
+        result[key] = remappedId;
+        changed = true;
+        continue;
+      }
+
+      const remappedValue = remapCollectionLayerReferences(childValue);
+      result[key] = remappedValue;
+      if (remappedValue !== childValue) {
+        changed = true;
+      }
+    }
+
+    return changed ? result : value;
+  };
+
+  const remapLayerDataMap = (
+    layerDataMap?: Record<string, Record<string, string>>
+  ): Record<string, Record<string, string>> | undefined => {
+    if (!layerDataMap) return undefined;
+
+    let changed = false;
+    const remapped: Record<string, Record<string, string>> = {};
+
+    for (const [key, value] of Object.entries(layerDataMap)) {
+      const remappedKey = getRemappedId(key) || key;
+      remapped[remappedKey] = value;
+      if (remappedKey !== key) {
+        changed = true;
+      }
+    }
+
+    return changed ? remapped : layerDataMap;
+  };
 
   const remapLayer = (l: Layer): Layer => {
     const remapped: Layer = {
       ...l,
       id: `${l.id}${suffix}`,
+      variables: remapCollectionLayerReferences(l.variables) as Layer['variables'],
+      _layerDataMap: remapLayerDataMap(l._layerDataMap),
     };
 
     if (l.interactions?.length) {
@@ -361,9 +432,7 @@ export function remapLayerIdsForCollectionItem(layer: Layer, suffix: string): La
         id: `${interaction.id}${suffix}`,
         tweens: interaction.tweens.map(tween => ({
           ...tween,
-          layer_id: originalIds.has(tween.layer_id)
-            ? `${tween.layer_id}${suffix}`
-            : tween.layer_id,
+          layer_id: getRemappedId(tween.layer_id) || tween.layer_id,
         })),
       }));
     }

@@ -140,7 +140,12 @@ function stripSSROnlyData(layers: Layer[]): Layer[] {
   return layers.map(layer => {
     const stripped: Layer = { ...layer };
 
-    delete stripped._collectionItemValues;
+    const isPageNavigationItem = stripped._collectionItemId?.startsWith('page:')
+      && !!stripped._collectionItemValues?.__page_navigation_label__;
+
+    if (!isPageNavigationItem) {
+      delete stripped._collectionItemValues;
+    }
     delete stripped._collectionItemSlug;
     delete stripped._layerDataMap;
 

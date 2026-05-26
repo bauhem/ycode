@@ -437,8 +437,33 @@ async function fetchPageByPathInternal(
     // If path is empty after locale detection (e.g., "/fr/" -> "fr" -> ""),
     // try to fetch the homepage
     if (targetPath === '' && detectedLocale) {
-      // Pass preloaded components and translations so CMS content is translated
-      const homepageData = await fetchHomepage(isPublished, paginationContext, components, tenantId, translations);
+      if (!resolveLayers) {
+        const homepage = pages.find((page: Page) => (
+          page.is_index &&
+          !page.page_folder_id &&
+          page.is_published === isPublished
+        ));
+
+        return homepage ? {
+          page: homepage,
+          pageLayers: {
+            id: '',
+            page_id: homepage.id,
+            layers: [],
+            is_published: isPublished,
+            created_at: '',
+            deleted_at: null,
+          },
+          components: [],
+          locale: detectedLocale,
+          availableLocales: availableLocales as Locale[] || [],
+          translations,
+        } : null;
+      }
+
+      // Pass preloaded locale data so homepage-only collection layers (like navigation)
+      // resolve with the same localized context as standard pages.
+      const homepageData = await fetchHomepage(isPublished, paginationContext, components, tenantId, translations, detectedLocale);
       if (homepageData) {
         // Components and collection layers are already resolved by fetchHomepage
         // Apply translations for the detected locale
@@ -876,7 +901,8 @@ export const fetchHomepage = cache(async function fetchHomepage(
   paginationContext?: PaginationContext,
   preloadedComponents?: Component[],
   tenantId?: string,
-  translations?: Record<string, Translation>
+  translations?: Record<string, Translation>,
+  locale?: Locale | null,
 ): Promise<Pick<PageData, 'page' | 'pageLayers' | 'components' | 'locale' | 'availableLocales' | 'translations' | 'generatedCss'> | null> {
   try {
     const supabase = await getSupabaseAdmin(tenantId);
@@ -927,7 +953,7 @@ export const fetchHomepage = cache(async function fetchHomepage(
 
     // Resolve collection layers server-side (for both draft and published)
     let resolvedLayers = layersWithComponents.length > 0
-      ? await resolveCollectionLayers(layersWithComponents, isPublished, undefined, paginationContext, translations)
+      ? await resolveCollectionLayers(layersWithComponents, isPublished, undefined, paginationContext, translations, undefined, undefined, locale)
       : [];
 
     // Resolve collections inside rich text embedded components
@@ -944,7 +970,7 @@ export const fetchHomepage = cache(async function fetchHomepage(
         layers: resolvedLayers,
       },
       components,
-      locale: null,
+      locale: locale || null,
       availableLocales: availableLocales as Locale[] || [],
       translations: translations || {},
       generatedCss: pageLayers?.generated_css || null,
@@ -1387,6 +1413,11 @@ function resolveInlineVariablesWithRelationships(
  * @param itemValues - Current item values
  * @param layerDataMap - Optional map of layer ID → item data for layer-specific resolution
  */
+function getComponentOriginalLayerId(layerId: string): string | null {
+  const match = layerId.match(/-(lyr-[^-]+)$/);
+  return match?.[1] || null;
+}
+
 function resolveFieldValueWithRelationships(
   fieldVariable: { type: 'field'; data: { field_id: string | null; relationships?: string[]; format?: string; collection_layer_id?: string } },
   itemValues: Record<string, string>,
@@ -2296,6 +2327,8 @@ export async function resolveCollectionLayers(
                 const updatedLayerDataMap = {
                   ...layerDataMap,
                   [layer.id]: virtualValues,
+                  ...(getComponentOriginalLayerId(layer.id) ? { [getComponentOriginalLayerId(layer.id)!]: virtualValues } : {}),
+                  ...(layer._originalLayerId ? { [layer._originalLayerId]: virtualValues } : {}),
                 };
 
                 // Resolve children for THIS specific asset's virtual values
@@ -2327,9 +2360,19 @@ export async function resolveCollectionLayers(
                   _layerDataMap: updatedLayerDataMap,
                 };
 
+                const injectedLayer = await injectCollectionData(
+                  clonedLayer,
+                  virtualValues,
+                  undefined,
+                  isPublished,
+                  updatedLayerDataMap,
+                  undefined,
+                  timezone
+                );
+
                 // Remap all layer IDs in the subtree to make them unique per asset
                 // This ensures animations target the correct elements for each item
-                return remapLayerIdsForCollectionItem(clonedLayer, `-item-${assetId}`);
+                return remapLayerIdsForCollectionItem(injectedLayer, `-item-${assetId}`);
               })
             ).then(results => results.filter((item): item is Layer => item !== null));
 
@@ -2507,6 +2550,8 @@ export async function resolveCollectionLayers(
               const updatedLayerDataMap = {
                 ...layerDataMap,
                 [layer.id]: enhancedValues,
+                ...(getComponentOriginalLayerId(layer.id) ? { [getComponentOriginalLayerId(layer.id)!]: enhancedValues } : {}),
+                ...(layer._originalLayerId ? { [layer._originalLayerId]: enhancedValues } : {}),
               };
 
               // Resolve children for THIS specific item's values
@@ -2552,9 +2597,19 @@ export async function resolveCollectionLayers(
                 _layerDataMap: updatedLayerDataMap,
               };
 
+              const injectedLayer = await injectCollectionData(
+                clonedLayer,
+                enhancedValues,
+                collectionFields,
+                isPublished,
+                updatedLayerDataMap,
+                rawEnhancedValues,
+                timezone
+              );
+
               // Remap all layer IDs in the subtree to make them unique per item
               // This ensures animations target the correct elements for each collection item
-              return remapLayerIdsForCollectionItem(clonedLayer, `-item-${item.id}`);
+              return remapLayerIdsForCollectionItem(injectedLayer, `-item-${item.id}`);
             })
           );
           // Build pagination metadata if pagination is enabled
