@@ -87,6 +87,7 @@
 | Hero/about/brand videos autoplay loop | Native `video` layer with asset `2704307f-4adc-4ed1-9e97-dfe0adfd1b8c` | done | Existing brand component and new about component use this asset. |
 | Services card hover line/image | Existing YCode/Tailwind classes | done | Reused component. |
 | Testimonial slider/tabs sync | Native YCode slider | done | `Section System Testimonials` initializes as Swiper in preview. |
+| Brand promise marquee loop | Native YCode 1.13 raw component interaction | done | Marquee rebuilt to match Webflow structure: two `.loop-line` rows, each with four individual text layers. Interaction is stored on component root `apw-brand-root` and targets `apw-brand-marquee`; resolver remaps it per instance. Uses breakpoint-specific loop distances for French copy: desktop `-4080px`, tablet `-2730px`, mobile `-1930px`, 24s linear infinite. |
 
 ## Localization
 | Locale | Status | Notes |
@@ -104,6 +105,7 @@
 | No blocking console errors | done | Playwright console check | Source-code renderer changes were reverted per project rule; React `playsinline` warning can be addressed only with explicit source-code authorization. |
 | Testimonials slider initializes | done | Playwright Swiper check | `.swiper` exists, has Swiper instance, and `slideNext()` changes active index. |
 | Services overview grid | done | Playwright desktop/tablet/mobile check | Desktop renders 3 service cards per row; tablet/mobile collapse to 1 column; no overflow. |
+| Brand promise marquee animates | done | Playwright desktop/mobile transform check | Native GSAP component interaction moves resolved `lyr-brand-apw-brand-marquee`; all eight text layers stay on one line, duplicate line gap is 30px, no horizontal overflow at desktop or 390px mobile. |
 | CMS renders real data | done | Preview renders Services, Testimonials, Team Members | Bound through native collection layer variables. |
 | Links resolve correctly | pending | | |
 | Components editable in Builder | pending | | |

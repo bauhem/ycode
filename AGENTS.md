@@ -481,6 +481,12 @@ These notes were observed during prior imports and may be fixed or partially mit
    - **Bug**: If you update a component's structural `layers` via SQL directly but forget to update the nested layers inside the `variants` column (specifically `components.variants[0].layers`), the component will render as completely blank/empty on the Editor Canvas. (Root cause: `LayerRenderer.tsx:1198` loads layers from the active variant schema, not the main `layers` array column).
    - **Workaround**: Always synchronize the `variants` JSON column dynamically when editing a component's structure via SQL: `UPDATE components SET variants = jsonb_build_array(jsonb_build_object('id', 'cmpvar-variants-id', 'name', 'Default', 'layers', layers)) ...`
 
+7. **SQL-created text layers lack `restrictions.editText` → CMS fieldGroups invisible in sidebar**
+   - **Bug**: Text layers written via SQL (`"name": "text"` or `"name": "heading"`) without `restrictions: { editText: true }` do not show CMS collection fields in the Element settings panel (the `fieldGroups` are correctly computed at runtime, but the editor's Insert Variable UI depends on `restrictions.editText` to display the CMS field picker).
+   - **Workaround**: ALWAYS include `"restrictions": {"editText": true}` on every text/heading layer created via SQL. Without it, the user cannot bind CMS fields through the sidebar UI, even if the collection ancestor layer is correctly set up with `variables.collection`.
+   - **Root cause**: `isTextEditable()` in `layer-utils.ts:562` checks `layer.restrictions?.editText`. The fieldGroups system in `RightSidebar.tsx:1682` and `CenterCanvas.tsx:1321` builds CMS field lists from ancestor collection layers, but the sidebar's Insert Variable/Content section for text layers only renders the field picker when the selected layer passes `restrictions.editText`. Without this flag, the field groups exist but are never exposed to the user.
+   - **Additional requirement**: Never include `variables.link`, `variables.image`, or other unrelated variable types on text layers. Keep `variables` to only `{ text: { type: "dynamic_rich_text", ... } }` on text layers.
+
 ---
 
 ## 🔧 Environment
