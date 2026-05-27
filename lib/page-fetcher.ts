@@ -1967,7 +1967,6 @@ async function buildCollectionCache(
   if (ids.length === 0) {
     await warmKnexPromise;
   } else {
-
     // Phase 1: Fetch fields for all collections (needed to discover reference collections)
     const { data: nonComputedFieldsData } = await client!
       .from('collection_fields')
@@ -2018,27 +2017,41 @@ async function buildCollectionCache(
           const refCollId = refFieldIdToCollectionId.get(refFieldId);
           if (refCollId) {
             if (!refCollectionBoundFieldIds.has(refCollId)) refCollectionBoundFieldIds.set(refCollId, new Set());
-          refCollectionBoundFieldIds.get(refCollId)!.add(targetFieldId);
+            refCollectionBoundFieldIds.get(refCollId)!.add(targetFieldId);
           }
         }
       }
     }
 
-    // Phase 2: Fetch ref collection fields + ALL items in parallel
+    // Phase 2: Fetch ref collection fields + items in parallel. Items are fetched
+    // per collection so one large collection does not starve smaller ones through
+    // Supabase/PostgREST row limits.
     const allCollIds = [...ids, ...refCollectionIds];
+    const perCollectionLimit = 5000;
 
-    let itemsQuery = client!
-      .from('collection_items')
-      .select('*')
-      .in('collection_id', allCollIds)
-      .eq('is_published', isPublished)
-      .is('deleted_at', null)
-      .order('manual_order', { ascending: true })
-      .order('created_at', { ascending: false })
-      .limit(5000);
-    if (isPublished) {
-      itemsQuery = itemsQuery.eq('is_publishable', true);
-    }
+    const buildItemsQuery = (collectionId: string) => {
+      let query = client!
+        .from('collection_items')
+        .select('*')
+        .eq('collection_id', collectionId)
+        .eq('is_published', isPublished)
+        .is('deleted_at', null)
+        .order('manual_order', { ascending: true })
+        .order('created_at', { ascending: false })
+        .limit(perCollectionLimit);
+
+      if (isPublished) {
+        query = query.eq('is_publishable', true);
+      }
+
+      return query;
+    };
+
+    const itemsPromise = Promise.all(allCollIds.map(buildItemsQuery))
+      .then(results => ({
+        data: results.flatMap(result => result.data || []),
+        error: results.find(result => result.error)?.error,
+      }));
 
     const refFieldsPromise = refCollectionIds.length > 0
       ? client!.from('collection_fields').select('*')
@@ -2048,9 +2061,9 @@ async function buildCollectionCache(
         .eq('is_computed', false)
         .order('order', { ascending: true })
         .limit(5000)
-      : Promise.resolve({ data: [] as any[] });
+      : Promise.resolve({ data: [] as CollectionField[] });
 
-    const [{ data: itemsData }, { data: refFieldsRaw }] = await Promise.all([itemsQuery, refFieldsPromise]);
+    const [{ data: itemsData }, { data: refFieldsRaw }] = await Promise.all([itemsPromise, refFieldsPromise]);
 
     // Build field structures
     const allFieldsData = [...(fieldsData || []), ...(refFieldsRaw || [])];
@@ -2058,8 +2071,8 @@ async function buildCollectionCache(
     const fieldTypeMap: Record<string, string> = {};
     for (const f of allFieldsData) {
       if (!fieldsByCollection.has(f.collection_id)) fieldsByCollection.set(f.collection_id, []);
-    fieldsByCollection.get(f.collection_id)!.push(f);
-    fieldTypeMap[f.id] = f.type;
+      fieldsByCollection.get(f.collection_id)!.push(f);
+      fieldTypeMap[f.id] = f.type;
     }
 
     // Phase 3: Fetch values — filter by bound field IDs when available
@@ -2133,9 +2146,9 @@ async function buildCollectionCache(
         itemsByCollection.set(item.collection_id, []);
         totalByCollection.set(item.collection_id, 0);
       }
-    itemsByCollection.get(item.collection_id)!.push(withValues);
-    totalByCollection.set(item.collection_id, totalByCollection.get(item.collection_id)! + 1);
-    itemsById.set(item.id, withValues);
+      itemsByCollection.get(item.collection_id)!.push(withValues);
+      totalByCollection.set(item.collection_id, totalByCollection.get(item.collection_id)! + 1);
+      itemsById.set(item.id, withValues);
     }
 
     // Ensure every requested collection has an entry
