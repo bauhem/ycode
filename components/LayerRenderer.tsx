@@ -1346,8 +1346,10 @@ const LayerItemImpl: React.FC<{
         items = items.filter(item =>
           evaluateVisibility(effectiveFilters, {
             collectionLayerData: item.values,
-            pageCollectionData: null,
+            pageCollectionData: pageCollectionItemData ?? null,
             pageCollectionCounts: {},
+            currentItemId: item.id,
+            pageCollectionItemId,
           })
         );
       }
@@ -1715,6 +1717,8 @@ const LayerItemImpl: React.FC<{
       collectionLayerData,
       pageCollectionData: pageCollectionItemData,
       pageCollectionCounts,
+      currentItemId: collectionLayerItemId,
+      pageCollectionItemId,
     });
     if (!isVisible) {
       return null;
