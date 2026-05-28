@@ -201,6 +201,77 @@ export function syncSliderStateAttributes(swiper: InstanceType<typeof import('sw
   requestAnimationFrame(syncAll);
 }
 
+/**
+ * Synchronize CMS tab controls with the native Swiper instance.
+ *
+ * Tabs are intentionally external to the slider layer tree so they can remain
+ * CMS-backed editable YCode layers. Scoping is based on the closest shared
+ * ancestor containing both `data-yc-role="tabs"` and the current slider.
+ */
+export function syncExternalSliderTabs(swiper: InstanceType<typeof import('swiper').default>) {
+  const tabsWrapper = findTabsWrapperForSlider(swiper.el);
+  if (!tabsWrapper) return () => undefined;
+
+  const tabs = Array.from(tabsWrapper.querySelectorAll<HTMLElement>('[data-yc-role="tab"]'));
+  if (tabs.length === 0) return () => undefined;
+
+  const getActiveIndex = () => swiper.realIndex ?? swiper.activeIndex ?? 0;
+
+  const syncTabs = () => {
+    const activeIndex = getActiveIndex();
+    tabs.forEach((tab, index) => {
+      const isActive = index === activeIndex;
+      tab.setAttribute('aria-selected', isActive ? 'true' : 'false');
+      tab.setAttribute('tabindex', isActive ? '0' : '-1');
+      tab.setAttribute('role', 'tab');
+    });
+    tabsWrapper.setAttribute('role', 'tablist');
+  };
+
+  const handleTabClick = (event: Event) => {
+    const tab = event.currentTarget as HTMLElement | null;
+    if (!tab) return;
+
+    const targetIndex = tabs.indexOf(tab);
+    if (targetIndex < 0) return;
+
+    swiper.slideTo(targetIndex);
+  };
+
+  tabs.forEach((tab) => {
+    tab.addEventListener('click', handleTabClick);
+  });
+
+  swiper.on('init', syncTabs);
+  swiper.on('slideChange', syncTabs);
+  requestAnimationFrame(syncTabs);
+
+  return () => {
+    swiper.off('init', syncTabs);
+    swiper.off('slideChange', syncTabs);
+    tabs.forEach((tab) => {
+      tab.removeEventListener('click', handleTabClick);
+    });
+  };
+}
+
+function findTabsWrapperForSlider(sliderElement: HTMLElement) {
+  let scope: HTMLElement | null = sliderElement.parentElement;
+
+  while (scope) {
+    const tabsWrapper = scope.querySelector<HTMLElement>('[data-yc-role="tabs"]');
+    const scopedSlider = scope.querySelector<HTMLElement>('[data-yc-role="slider"], [data-slider-id]');
+
+    if (tabsWrapper && scopedSlider === sliderElement) {
+      return tabsWrapper;
+    }
+
+    scope = scope.parentElement;
+  }
+
+  return null;
+}
+
 /** Load minimal Swiper CSS into an iframe document via <link> tag */
 export function loadSwiperCss(doc: Document) {
   const id = 'ycode-swiper-css';

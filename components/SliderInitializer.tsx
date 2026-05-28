@@ -15,6 +15,7 @@ import {
   applySwiperEasing,
   loadSwiperCss,
   configureBulletRenderer,
+  syncExternalSliderTabs,
   syncSliderStateAttributes,
 } from '@/lib/slider-utils';
 
@@ -23,6 +24,7 @@ const INITIALIZED_ATTR = 'data-slider-initialized';
 
 export default function SliderInitializer() {
   const swiperInstancesRef = useRef<Swiper[]>([]);
+  const cleanupCallbacksRef = useRef<Array<() => void>>([]);
 
   useEffect(() => {
     loadSwiperCss(document);
@@ -55,6 +57,7 @@ export default function SliderInitializer() {
           const swiper = new Swiper(el, config);
           applySwiperEasing(el, settings.easing);
           syncSliderStateAttributes(swiper);
+          cleanupCallbacksRef.current.push(syncExternalSliderTabs(swiper));
 
           const paginationEl = el.querySelector('[data-slider-pagination]') as HTMLElement | null;
           if (paginationEl) paginationEl.style.visibility = '';
@@ -79,6 +82,8 @@ export default function SliderInitializer() {
 
     return () => {
       window.removeEventListener(ITEMS_INJECTED_EVENT, handleItemsInjected);
+      cleanupCallbacksRef.current.forEach((cleanup) => cleanup());
+      cleanupCallbacksRef.current = [];
       swiperInstancesRef.current.forEach((swiper) => swiper.destroy(true, true));
       swiperInstancesRef.current = [];
     };
