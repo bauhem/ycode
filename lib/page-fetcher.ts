@@ -3,11 +3,11 @@ import { escapeHtml } from '@/lib/escape-html';
 import { getSupabaseAdmin } from '@/lib/supabase-server';
 import { getKnexClient } from '@/lib/knex-client';
 import { buildSlugPath, buildDynamicPageUrl, buildLocalizedSlugPath, buildLocalizedDynamicPageUrl, detectLocaleFromPath, matchPageWithTranslatedSlugs, matchDynamicPageWithTranslatedSlugs } from '@/lib/page-utils';
-import { getItemWithValues, getItemsWithValues, getItemsWithValuesByIds, getItemIdsByFieldValue, getItemsByCollectionId } from '@/lib/repositories/collectionItemRepository';
+import { getItemWithValues, getItemsWithValues, getItemsWithValuesByIds, getItemIdsByFieldValue, getItemsByCollectionId, getSlugsByItemIds } from '@/lib/repositories/collectionItemRepository';
 import { getValuesByItemIds } from '@/lib/repositories/collectionItemValueRepository';
 import { getFieldsByCollectionId } from '@/lib/repositories/collectionFieldRepository';
 import { enrichItemsWithCountValues } from '@/lib/repositories/collectionCountRepository';
-import type { Page, PageFolder, PageLayers, Component, ComponentVariable, CollectionItemWithValues, CollectionField, Layer, CollectionPaginationMeta, Translation, Locale } from '@/types';
+import type { Page, PageFolder, PageLayers, Component, ComponentVariable, CollectionItem, CollectionItemWithValues, CollectionField, Layer, CollectionPaginationMeta, Translation, Locale } from '@/types';
 import { getCollectionVariable, resolveFieldValue, evaluateVisibility, getLayerHtmlTag, filterDisabledSliderLayers } from '@/lib/layer-utils';
 import { isFieldVariable, isAssetVariable, createDynamicTextVariable, createDynamicRichTextVariable, createAssetVariable, getDynamicTextContent, getVariableStringValue, getAssetId, resolveDesignStyles } from '@/lib/variable-utils';
 import { buildImageSizes, generateImageSrcset, getOptimizedImageUrl, getAssetProxyUrl, DEFAULT_ASSETS, collectLayerAssetIds, buildSvgDataUrl, parseImageDimension } from '@/lib/asset-utils';
@@ -2023,35 +2023,48 @@ async function buildCollectionCache(
       }
     }
 
-    // Phase 2: Fetch ref collection fields + items in parallel. Items are fetched
-    // per collection so one large collection does not starve smaller ones through
-    // Supabase/PostgREST row limits.
+    // Phase 2: Fetch ref collection fields + items in parallel.
+    // Items are fetched per-collection because a single `.in('collection_id', [...])`
+    // query is bounded by Supabase/PostgREST's `db-max-rows` setting (often 1000),
+    // so a large collection can starve smaller ones in the same page.
+    // We chunk via `.range()` past the 1000-row cap, stopping once we hit
+    // PER_COLLECTION_LIMIT or run out of rows.
     const allCollIds = [...ids, ...refCollectionIds];
-    const perCollectionLimit = 5000;
+    const PER_COLLECTION_LIMIT = 5000;
+    const ITEMS_PAGE_SIZE = 1000;
 
-    const buildItemsQuery = (collectionId: string) => {
-      let query = client!
-        .from('collection_items')
-        .select('*')
-        .eq('collection_id', collectionId)
-        .eq('is_published', isPublished)
-        .is('deleted_at', null)
-        .order('manual_order', { ascending: true })
-        .order('created_at', { ascending: false })
-        .limit(perCollectionLimit);
+    const fetchItemsForCollection = async (collectionId: string) => {
+      const all: CollectionItem[] = [];
 
-      if (isPublished) {
-        query = query.eq('is_publishable', true);
+      for (let from = 0; from < PER_COLLECTION_LIMIT; from += ITEMS_PAGE_SIZE) {
+        const to = Math.min(from + ITEMS_PAGE_SIZE - 1, PER_COLLECTION_LIMIT - 1);
+        let query = client!
+          .from('collection_items')
+          .select('*')
+          .eq('collection_id', collectionId)
+          .eq('is_published', isPublished)
+          .is('deleted_at', null)
+          .order('manual_order', { ascending: true })
+          .order('created_at', { ascending: false })
+          .range(from, to);
+
+        if (isPublished) {
+          query = query.eq('is_publishable', true);
+        }
+
+        const { data, error } = await query;
+        if (error) throw new Error(`Failed to fetch collection items: ${error.message}`);
+        if (!data || data.length === 0) break;
+
+        all.push(...data);
+        if (data.length < to - from + 1) break;
       }
 
-      return query;
+      return all;
     };
 
-    const itemsPromise = Promise.all(allCollIds.map(buildItemsQuery))
-      .then(results => ({
-        data: results.flatMap(result => result.data || []),
-        error: results.find(result => result.error)?.error,
-      }));
+    const itemsPromise = Promise.all(allCollIds.map(fetchItemsForCollection))
+      .then(results => ({ data: results.flat() }));
 
     const refFieldsPromise = refCollectionIds.length > 0
       ? client!.from('collection_fields').select('*')
@@ -2447,7 +2460,15 @@ export async function resolveCollectionLayers(
               .filter(item => {
                 const val = item.values[sourceFieldId!];
                 if (!val) return false;
-                return val === parentItemId || (typeof val === 'string' && val.includes(`"${parentItemId}"`));
+                // Single reference: bare UUID string. Multi-reference: castValue already
+                // JSON-parses the stored array into a JS array, so check membership
+                // directly. The legacy `val.includes('"id"')` substring check is kept as
+                // a fallback for any value that arrives un-parsed.
+                if (Array.isArray(val)) return val.includes(parentItemId);
+                if (typeof val === 'string') {
+                  return val === parentItemId || val.includes(`"${parentItemId}"`);
+                }
+                return false;
               })
               .map(item => item.id);
           } else if (sourceFieldId && itemValues) {
@@ -2472,6 +2493,51 @@ export async function resolveCollectionLayers(
             filteredItems = filteredItems.filter(i => allowedSet.has(i.id));
           }
 
+          // Apply static collection filters early so totalItems, pagination
+          // slicing, and the `itemIds` we hand off to load_more all reflect
+          // the same constrained set. Input-linked conditions are skipped
+          // here — they run client-side via FilterableCollection.
+          const collectionFilters = collectionVariable.filters;
+          const staticFilters = collectionFilters?.groups?.length ? {
+            ...collectionFilters,
+            groups: collectionFilters.groups.map(group => ({
+              ...group,
+              conditions: group.conditions.filter(c => !c.inputLayerId),
+            })).filter(group => group.conditions.length > 0),
+          } : null;
+          const hasStaticFilters = !!staticFilters && staticFilters.groups.length > 0;
+
+          if (hasStaticFilters) {
+            filteredItems = filteredItems.filter(item =>
+              evaluateVisibility(staticFilters!, {
+                collectionLayerData: item.values,
+                pageCollectionData: parentItemValues ?? null,
+                pageCollectionCounts: {},
+                currentItemId: item.id,
+                pageCollectionItemId: pageCollectionItemId ?? parentCollectionItemId,
+              })
+            );
+          }
+
+          // When pagination is enabled, `collectionVariable.limit` acts as a
+          // hard cap on the total — both for the displayed count and for how
+          // far `load_more` can page. Without pagination, the legacy slice
+          // below applies it as a per-page limit instead.
+          const maxTotal = isPaginated && typeof collectionVariable.limit === 'number' && collectionVariable.limit > 0
+            ? collectionVariable.limit
+            : undefined;
+          if (maxTotal != null && filteredItems.length > maxTotal) {
+            filteredItems = filteredItems.slice(0, maxTotal);
+          }
+
+          // Static filters shrink the candidate pool — propagate the final
+          // ID list so the load_more API uses it as its candidate pool
+          // (otherwise it falls back to all collection items and bypasses
+          // the layer's static filters).
+          if (hasStaticFilters) {
+            allowedItemIds = filteredItems.map(item => item.id);
+          }
+
           const totalItems = filteredItems.length;
 
           // For non-field-sort, apply limit/offset in-memory (mirrors DB pagination)
@@ -2481,30 +2547,6 @@ export async function resolveCollectionLayers(
             items = filteredItems.slice(start, limit ? start + limit : undefined);
           } else {
             items = filteredItems;
-          }
-
-          // Apply static collection filters (evaluate against each item's own values)
-          const collectionFilters = collectionVariable.filters;
-          if (collectionFilters?.groups?.length) {
-            const staticFilters = {
-              ...collectionFilters,
-              groups: collectionFilters.groups.map(group => ({
-                ...group,
-                conditions: group.conditions.filter(c => !c.inputLayerId),
-              })).filter(group => group.conditions.length > 0),
-            };
-
-            if (staticFilters.groups.length > 0) {
-              items = items.filter(item =>
-                evaluateVisibility(staticFilters, {
-                  collectionLayerData: item.values,
-                  pageCollectionData: parentItemValues ?? null,
-                  pageCollectionCounts: {},
-                  currentItemId: item.id,
-                  pageCollectionItemId: pageCollectionItemId ?? parentCollectionItemId,
-                })
-              );
-            }
           }
 
           // Apply sorting if specified (since API doesn't handle sortBy yet)
@@ -2653,6 +2695,7 @@ export async function resolveCollectionLayers(
               isPublished,
               sortBy: collectionVariable.sort_by,
               sortOrder: collectionVariable.sort_order,
+              maxTotal,
             };
           }
 
@@ -3135,9 +3178,16 @@ function updatePaginationLayerWithMeta(layer: Layer, meta: CollectionPaginationM
   // Deep clone to avoid mutation
   const updatedLayer: Layer = JSON.parse(JSON.stringify(layer));
 
+  // No results: hide the entire pagination wrapper rather than rendering
+  // controls with empty/zero text.
+  if (totalItems <= 0) {
+    updatedLayer.classes = Array.isArray(updatedLayer.classes)
+      ? [...updatedLayer.classes, 'hidden']
+      : `${updatedLayer.classes || ''} hidden`.trim();
+  }
+
   // Helper to recursively update layers
   function updateLayerRecursive(l: Layer): void {
-    // Update page info text (for 'pages' mode)
     if (l.id?.endsWith('-pagination-info')) {
       l.variables = {
         ...l.variables,
@@ -3148,7 +3198,6 @@ function updatePaginationLayerWithMeta(layer: Layer, meta: CollectionPaginationM
       };
     }
 
-    // Update items count text (for 'load_more' mode)
     if (l.id?.endsWith('-pagination-count')) {
       const shownItems = Math.min(itemsPerPage, totalItems);
       l.variables = {
@@ -3318,24 +3367,8 @@ async function enrichSlugsFromLinkFields(
   const missingItemIds = extractCrossCollectionItemIds(items, linkFieldIds, existingSlugs);
   if (missingItemIds.length === 0) return;
 
-  const refItems = await getItemsWithValuesByIds(missingItemIds, isPublished);
-  const refCollectionIds = new Set(Object.values(refItems).map(i => i.collection_id));
-
-  const fieldsByCollection = new Map<string, CollectionField[]>();
-  await Promise.all(
-    Array.from(refCollectionIds).map(async (collId) => {
-      const fields = await getFieldsByCollectionId(collId, isPublished);
-      fieldsByCollection.set(collId, fields);
-    })
-  );
-
-  for (const refItem of Object.values(refItems)) {
-    const fields = fieldsByCollection.get(refItem.collection_id);
-    const slugField = fields?.find(f => f.key === 'slug');
-    if (slugField && refItem.values[slugField.id]) {
-      existingSlugs[refItem.id] = refItem.values[slugField.id];
-    }
-  }
+  const refSlugs = await getSlugsByItemIds(missingItemIds, isPublished);
+  Object.assign(existingSlugs, refSlugs);
 }
 
 /**
