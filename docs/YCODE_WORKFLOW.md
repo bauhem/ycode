@@ -130,6 +130,16 @@ Example from `Button Link Arrow Dark`:
 
 When building collection-backed text layers, preserve the same data shape the editor creates from `Element > Content > Insert Variable`.
 
+### CMS field keys
+
+Every CMS field created by an agent must have a stable `key` from the start.
+
+- Use API-safe keys like `name`, `description`, `slug`, `content`, `benefits`, `characteristics`, `author_name`.
+- Do not leave translatable/editor-facing fields with `key = null`.
+- Null keys force YCode to fall back to UUID/id-based translation keys, which creates fragile duplicate formats such as `<field-id>`, `field:id:<field-id>`, and `field:key:<key>`.
+- After creating fields, verify draft and published field records both have the same non-null key.
+- If fixing a legacy null-key field, add the key and insert translation aliases non-destructively. Do not delete or mutate existing translation rows.
+
 - Put the text layer under an ancestor with `variables.collection` for the target collection.
 - Store text bindings as `variables.text.type = "dynamic_rich_text"`.
 - Put the field reference inside a Tiptap `dynamicVariable` node.

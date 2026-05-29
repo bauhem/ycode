@@ -149,6 +149,42 @@ Rules:
 
 ---
 
+## 🛑 Critical — Translation Data Integrity (NEVER Violate)
+
+### Dual-Record Architecture — Mandatory Understanding
+Every YCode translation uses TWO database records:
+1. **Draft** (`is_published=false`) — what the YCode builder/editor displays. NEVER delete or modify `is_published` on drafts.
+2. **Published** (`is_published=true`) — what the public frontend reads. Coexists with the draft.
+
+Both records MUST always coexist for translations to work correctly in both editor and frontend.
+
+### Absolute Rules (NEVER Break)
+1. **NEVER run DELETE on translations** — you will delete drafts that the builder needs.
+2. **NEVER change `is_published`** via SQL on existing translations. The only valid operation is INSERT for new translations (always with `is_published=false` for draft + `is_published=true` for published copies).
+3. **NEVER touch `page` or `component` source_type translations** — only `cms` when specifically requested and with explicit authorization per collection.
+4. **Bulk operations on translations are FORBIDDEN** — always operate on a single known content_key, source_id, or a small explicit list approved by the user.
+5. If a translation needs to be "published" for public display, the user must use YCode's own publish mechanism. Do NOT set `is_published=true` via SQL.
+6. If a translation exists and is working correctly in the builder, leave it alone — do not modify it in any way.
+
+### Correct Workflow for Adding New Translations
+Use `ycode_batch_set_translations` to create drafts, then immediately INSERT matching published copies via SQL:
+
+```sql
+-- Step 1: Create draft via MCP (ycode_batch_set_translations)
+-- Step 2: Create published copy
+INSERT INTO translations (id, locale_id, source_type, source_id, content_key, content_type, content_value, is_completed, is_published, created_at, updated_at)
+SELECT gen_random_uuid(), 'en-locale-id', source_type, source_id, content_key, content_type, content_value, true, true, NOW(), NOW()
+FROM translations
+WHERE locale_id = 'en-locale-id'
+  AND source_type = 'cms'
+  AND source_id = 'specific-item-id'
+  AND is_published = false
+  AND is_completed = false
+ON CONFLICT (locale_id, source_type, source_id, content_key, is_published) DO NOTHING;
+```
+
+NEVER update existing draft records. Only insert new ones.
+
 ## 🚫 What NOT to Do
 
 - Do NOT use HTML embed blocks, custom <style> tags, or hardcoded raw CSS/HTML snippets for designs, hover states, transitions, or animations. ALWAYS use native Tailwind utility classes (such as `group`, `group-hover:`, `transition-`, `duration-`, `scale-`, `rotate-`, etc.) to build clean, native, and fully customizable visual styles inside the builder.
@@ -318,6 +354,13 @@ Skipping any of these WILL produce incorrect results.
 ### Critical Rule: Detect and Implement CMS Collection Lists
 - DevLink exports CMS lists as static elements or placeholders (`<NotSupported _atom="Collection List" />`). **Do NOT make components static if they are meant to display dynamic data (like Blogs, Services, Testimonials, Team, etc.).**
 - ALWAYS detect if the component needs a CMS list, look up the target collection (using `ycode_list_collections`), and implement a native YCode Collection List. Connect nested elements (headings, paragraphs, images) to their respective CMS fields dynamically.
+
+### Critical Rule: CMS Fields Must Have Stable Keys
+- Every CMS field created by an agent MUST include a stable `key` at creation time.
+- Use clear API-safe keys such as `name`, `description`, `slug`, `content`, `benefits`, `characteristics`, `author_name`, etc.
+- Never leave `collection_fields.key = null` for editor-facing or translatable fields. A null key forces YCode to use UUID-based translation keys (`field:id:<uuid>`), which is fragile and creates duplicate translation formats.
+- After creating or modifying CMS fields, verify both draft and published `collection_fields` records have non-null keys for every translatable field.
+- If an existing field has no key, add one immediately and create non-destructive translation aliases from the old UUID/id format to `field:key:<key>`.
 
 ### Critical Rule: Preserve CMS Text Binding Contracts
 - `Element > Content > Insert Variable` is powered by `fieldGroups`, which are built from ancestor layers that have `variables.collection`. A text layer must be a descendant of the correct collection layer, otherwise the sidebar has no collection fields to show.

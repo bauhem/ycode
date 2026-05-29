@@ -8,7 +8,7 @@ import type {
   Translation,
 } from '@/types';
 import { buildLocalizedDynamicPageUrl, buildLocalizedSlugPath } from '@/lib/page-utils';
-import { getTranslatableKey } from '@/lib/locale-runtime';
+import { getTranslatableKey, getTranslationValue } from '@/lib/locale-runtime';
 
 export const PAGE_NAVIGATION_COLLECTION_ID = '__page_navigation__';
 export const PAGE_NAVIGATION_LABEL_FIELD_ID = '__page_navigation_label__';
@@ -210,20 +210,63 @@ function getPageLabel(
 
 function getItemLabel(
   item: CollectionItemWithValues,
-  fields: CollectionField[]
+  fields: CollectionField[],
+  translations: Record<string, Translation> | undefined
 ): string {
   const labelField = fields.find(field => field.key === 'name')
     || fields.find(field => field.key === 'title')
     || fields.find(field => field.key === 'slug')
     || fields.find(field => field.type === 'text' && !field.hidden);
 
+  const translatedLabel = labelField
+    ? getTranslatedItemFieldValue(item, labelField, translations)
+    : null;
+  if (translatedLabel) return translatedLabel;
+
   const label = labelField ? item.values?.[labelField.id] : null;
   return label && String(label).trim() ? String(label) : `Item ${item.id.slice(0, 8)}`;
 }
 
-function getDynamicItemSlug(item: CollectionItemWithValues, targetPage: Page): string | null {
+function getTranslatedItemFieldValue(
+  item: CollectionItemWithValues,
+  field: CollectionField,
+  translations: Record<string, Translation> | undefined
+): string | null {
+  if (!translations) return null;
+
+  const contentKeys = [
+    field.id,
+    field.key ? `field:key:${field.key}` : `field:id:${field.id}`,
+  ];
+
+  for (const contentKey of contentKeys) {
+    const translation = translations[getTranslatableKey({
+      source_type: 'cms',
+      source_id: item.id,
+      content_key: contentKey,
+    })];
+    const value = getTranslationValue(translation);
+    if (value) return value;
+  }
+
+  return null;
+}
+
+function getDynamicItemSlug(
+  item: CollectionItemWithValues,
+  targetPage: Page,
+  fields: CollectionField[],
+  translations: Record<string, Translation> | undefined
+): string | null {
   const slugFieldId = targetPage.settings?.cms?.slug_field_id;
   if (!slugFieldId) return null;
+
+  const slugField = fields.find(field => field.id === slugFieldId);
+  if (slugField) {
+    const translatedSlug = getTranslatedItemFieldValue(item, slugField, translations);
+    if (translatedSlug) return translatedSlug;
+  }
+
   const slug = item.values?.[slugFieldId];
   return slug && String(slug).trim() ? String(slug) : null;
 }
@@ -368,13 +411,13 @@ function buildCollectionChildren(
     : items;
 
   return filteredItems.flatMap((item): PageNavigationItem[] => {
-    const slug = getDynamicItemSlug(item, targetPage);
+    const slug = getDynamicItemSlug(item, targetPage, fields, options.translations);
     if (!slug) return [];
 
     return [{
       id: `collection_item:${item.id}`,
       type: 'collection_item',
-      label: getItemLabel(item, fields),
+      label: getItemLabel(item, fields, options.translations),
       href: buildLocalizedDynamicPageUrl(
         targetPage,
         options.folders,
