@@ -32,6 +32,15 @@ function defaultVariantsFromLayers(layers: Layer[]): ComponentVariant[] {
   return [{ id: generateId('cmpvar'), name: 'Default', layers }];
 }
 
+function getComponentContentHash(component: Component): string {
+  return component.content_hash ?? generateComponentContentHash({
+    name: component.name,
+    layers: component.layers,
+    variables: component.variables,
+    variants: component.variants ?? undefined,
+  });
+}
+
 /**
  * Get all components (draft by default, excludes soft deleted)
  */
@@ -369,30 +378,34 @@ export async function publishComponents(componentIds: string[]): Promise<{ count
   // Fetch existing published versions to compare hashes
   const { data: publishedComponents } = await client
     .from('components')
-    .select('id, content_hash')
+    .select('*')
     .in('id', draftComponents.map(d => d.id))
     .eq('is_published', true);
 
   const publishedHashById = new Map<string, string>();
   if (publishedComponents) {
     for (const pub of publishedComponents) {
-      if (pub.content_hash) publishedHashById.set(pub.id, pub.content_hash);
+      publishedHashById.set(pub.id, getComponentContentHash(pub));
     }
   }
 
   // Only upsert components that are new or have changed
   const componentsToUpsert = draftComponents
-    .filter(draft => {
-      const pubHash = publishedHashById.get(draft.id);
-      return !pubHash || pubHash !== draft.content_hash;
-    })
     .map(draft => ({
+      draft,
+      draftHash: getComponentContentHash(draft),
+    }))
+    .filter(({ draft, draftHash }) => {
+      const pubHash = publishedHashById.get(draft.id);
+      return !pubHash || pubHash !== draftHash;
+    })
+    .map(({ draft, draftHash }) => ({
       id: draft.id,
       name: draft.name,
       layers: draft.layers,
       variants: draft.variants,
       variables: draft.variables,
-      content_hash: draft.content_hash,
+      content_hash: draftHash,
       is_published: true,
       updated_at: new Date().toISOString(),
     }));
@@ -472,8 +485,8 @@ export async function getUnpublishedComponents(): Promise<Component[]> {
       continue;
     }
 
-    // Compare content hashes
-    if (draftComponent.content_hash !== publishedComponent.content_hash) {
+    // Compare computed hashes so NULL legacy hashes cannot hide real JSON diffs.
+    if (getComponentContentHash(draftComponent) !== getComponentContentHash(publishedComponent)) {
       unpublishedComponents.push(draftComponent);
     }
   }

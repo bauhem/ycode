@@ -336,7 +336,7 @@ Component rule:
 
 - If a form is inside a component, set `settings.id` on the form layer inside the component, not only on the page instance.
 - Prefer MCP form settings and layer settings tools for form configuration.
-- When editing component form JSON directly is unavoidable, update only the target variant. If the default variant is changed through SQL, keep `components.layers` and `components.variants[0].layers` in sync, then set `content_hash = NULL`.
+- When editing component form JSON directly is unavoidable, update only the target variant. If the default variant is changed through SQL, keep `components.layers` and `components.variants[0].layers` in sync, then invalidate `content_hash` with a new non-null value.
 
 ### 7. Implement CMS Natively
 
@@ -474,6 +474,8 @@ Classify each interaction:
 
 Prefer YCode 1.13.0 interaction tools for scroll reveals, hover/click effects, staggered entrances, parallax, and loops. Avoid custom scripts for normal visual styling or motion. If custom code is required, use stable HTML IDs or explicit custom attributes, never generated component layer IDs.
 
+When SQL is required for component interactions, update both the legacy/default `components.layers` tree and the targeted `components.variants[N].layers` tree for default-variant edits. Invalidate `content_hash` with a non-null value, then verify unpublished-change detection before preview QA.
+
 ### 11.1. Static HTML Export
 
 YCode 1.13.0 can export the published site as standalone HTML to local disk, Amazon S3, or a GitHub branch.
@@ -507,6 +509,7 @@ Check desktop, tablet, and mobile:
 - No horizontal overflow.
 - Heading hierarchy.
 - Component editability in Builder.
+- Draft/published state is understood: use `/ycode/preview` for draft QA and public routes only after explicit publish confirmation.
 
 Use screenshots and computed-style checks for major elements. Record evidence and remaining differences in the ledger.
 

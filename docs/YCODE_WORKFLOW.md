@@ -118,7 +118,7 @@ As of YCode 1.13.0, component variants are scriptable through MCP. Use MCP varia
 - A nested component can expose its variant choice through a parent variable using `layer.componentVariantVariableId` and `componentOverrides.variant`.
 - When using SQL is unavoidable, update the exact affected variant under `components.variants[N].layers`; do not overwrite `variants[0]` or rebuild the whole `variants` array unless that is explicitly intended.
 - If the default variant structure changes through SQL, keep `components.layers` and `components.variants[0].layers` in sync for legacy fallback/editor safety.
-- Clear `content_hash` after SQL changes so thumbnails/rendered component caches can refresh.
+- Invalidate `content_hash` after SQL changes with a new non-null value so thumbnails/rendered component caches refresh and publish/change detection still sees the draft component as changed.
 
 Example from `Button Link Arrow Dark`:
 
@@ -145,7 +145,7 @@ Every CMS field created by an agent must have a stable `key` from the start.
 - Put the field reference inside a Tiptap `dynamicVariable` node.
 - Include `source: "collection"`, `collection_layer_id`, `field_id`, `field_type`, and `relationships: []` in the variable data.
 - Do not store text as a direct `variables.text.type = "field"`; that breaks the editor contract and can make future variable insertion/editing unreliable.
-- Prefer MCP CMS/rich-text binding tools where available. If SQL is required, update the affected variant layer trees in `components.variants`. For the default variant, also keep `components.layers` in sync. Clear `content_hash`, then verify recursively that there are no direct field text variables left.
+- Prefer MCP CMS/rich-text binding tools where available. If SQL is required, update the affected variant layer trees in `components.variants`. For the default variant, also keep `components.layers` in sync. Invalidate `content_hash` with a non-null value, then verify recursively that there are no direct field text variables left.
 
 Minimal shape:
 
@@ -207,6 +207,10 @@ YCode 1.13.0 exposes layer interactions through MCP.
 - Keep layout, colors, and responsive behavior in native YCode design/classes; interactions should control motion/state only.
 - Use stable HTML IDs or custom attributes only when a custom script remains unavoidable.
 - Do not add page custom code for scroll reveals, hover effects, click toggles, or marquees until native interaction presets have been checked.
+- When migrating Webflow IX, first map source actions to native categories: reveal preset, raw timeline, hover/transition class, native slider behavior, or custom fallback.
+- If interactions are written through SQL, update both `components.layers` and the targeted `components.variants[N].layers` tree when editing the default variant.
+- After interaction changes, verify `get_unpublished_changes` includes the affected components, `content_hash` is non-null, and `components.layers = components.variants #> '{0,layers}'` for default-variant edits.
+- Browser-verify `/ycode/preview` at desktop and mobile sizes, including console errors, scroll behavior, animation triggers, and horizontal overflow.
 
 ## Static HTML export
 
