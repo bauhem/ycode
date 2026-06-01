@@ -231,7 +231,26 @@ NEVER update existing draft records. Only insert new ones.
 
 When asked to translate texts of a **component** (e.g. Home Hero), follow this workflow:
 
-**Step 1 — Identify the component and its texts**
+**Step 1 — Discover exact translation keys**
+
+As of YCode 1.18.0, use MCP translation discovery before writing translations. Do not guess `content_key` values from layer JSON when the tool is available.
+
+```bash
+ycode_list_translatable_content(source_type, source_id, locale_id)
+```
+
+Use it for:
+- `source_type: "component"` to translate master component text.
+- `source_type: "page"` to translate page-only text and per-instance component overrides.
+- `source_type: "cms"` to translate CMS item fields; pass `search`/`limit` when needed.
+
+Per-instance component override translations are page-scoped in YCode 1.18.0 and use `source_type: "page"`, not `"component"`. Their keys look like:
+- `layer:<instance_layer_id>:override:text:<variable_id>`
+- `layer:<instance_layer_id>:override:rich_text:<variable_id>`
+- `layer:<instance_layer_id>:override:image_src:<variable_id>`
+- `layer:<instance_layer_id>:override:image_alt:<variable_id>`
+
+**Step 2 — Identify the component and its texts if manual inspection is still needed**
 
 ```bash
 # List all components, locales, and the target page's layers
@@ -242,7 +261,7 @@ ycode_get_layers(page_id)
 
 The page layer tree shows which `componentId` is used. Then call `ycode_get_component(component_id)` to inspect all text layers.
 
-**Step 2 — Check existing translations**
+**Step 3 — Check existing translations**
 
 ```bash
 ycode_list_translations(locale_id)  # e.g. English locale ID
@@ -250,7 +269,7 @@ ycode_list_translations(locale_id)  # e.g. English locale ID
 
 Translations for components use `source_type: "component"` and `source_id: <component_id>`.
 
-**Step 3 — Translate using batch upsert**
+**Step 4 — Translate using batch upsert**
 
 Use `ycode_batch_set_translations` — one call upserts all translations at once:
 
@@ -271,6 +290,8 @@ Key rules:
 - `source_type`: `"component"` (for component texts), `"page"` (for page texts), `"cms"` (for CMS fields)
 - `content_type`: `"text"` for simple text, `"richtext"` for rich text (JSON string)
 - **Always batch**: group all translations into a single `ycode_batch_set_translations` call
+- YCode 1.18.0 validates each batch entry before saving; if one translation has an invalid format, none are saved. Fix the reported index/key and retry the whole batch.
+- Prefer `ycode_set_rich_text_translation` for rich-text content when the MCP surface exposes it, instead of assembling Tiptap JSON manually.
 - **"MODERN" / "SOLUTION"** — marquee/branding texts already in English: skip them
 - **"Discover more"** — already English: still add the translation entry for completeness
 
@@ -294,6 +315,7 @@ Runtime rules:
 - Public pages such as `/en` use published translations only (`is_published = true`).
 - Public pages ignore translation rows unless `is_completed = true` and `content_value` is non-empty.
 - MCP translation writes are draft changes; they must be published before the public frontend can use them.
+- In YCode 1.18.0, `ycode_get_unpublished_changes` reports pending translations and locales; use it before asking for publish confirmation.
 - Never run `ycode_publish` unless the user explicitly confirms publishing.
 
 When `/en` still shows French text while the builder looks English:
@@ -340,6 +362,12 @@ For general client Webflow migrations, first read `docs/WEBFLOW_TO_YCODE_NATIVE_
 - Animations are scriptable. Use curated reveal, hover, click, parallax, stagger, and loop presets, or raw layer interactions for custom GSAP timelines.
 - CMS is expanded. Support option/count fields, metadata, sorting, manual order, references, dynamic page binding, and rich-text translations through MCP where available.
 - Static HTML export is available for published sites to local disk, S3, or GitHub, but never run publish/export without explicit user confirmation.
+
+### YCode 1.18.0 Localization Updates
+- Use MCP translation discovery (`ycode_list_translatable_content`) before translating pages, components, or CMS content. It returns the exact `source_type`, `source_id`, `content_key`, `content_type`, labels, source values, and optional existing locale status.
+- Component instance overrides are now translatable as page-scoped rows. Translate them with `source_type: "page"` and the `layer:<instance_layer_id>:override:*:<variable_id>` keys surfaced by discovery.
+- Translation writes validate content format before saving. Treat batch failures as all-or-nothing: fix the reported invalid entries and retry the batch.
+- `get_unpublished_changes` now includes pending translations and locales. Check it before any publish discussion, but still never publish without explicit user confirmation.
 
 ### Critical Rule: Read EVERY source file upfront
 

@@ -239,6 +239,11 @@ That pattern keeps the desktop version stable and makes the tablet version predi
 
 The builder/localization UI and the public frontend do not read the same translation snapshot.
 
+- YCode 1.18.0 adds MCP discovery for translatable content. Before writing translations, call `ycode_list_translatable_content` for the page, component, or CMS source and use the returned `source_type`, `source_id`, `content_key`, and `content_type` exactly.
+- Component instance overrides are page-scoped translations, not component translations. Discovery surfaces keys such as `layer:<instance_layer_id>:override:text:<variable_id>`, `layer:<instance_layer_id>:override:rich_text:<variable_id>`, `layer:<instance_layer_id>:override:image_src:<variable_id>`, and `layer:<instance_layer_id>:override:image_alt:<variable_id>`.
+- `ycode_batch_set_translations` validates all entries before saving. If one entry is malformed, no entries are saved; fix the reported index/key and retry the full batch.
+- Prefer `ycode_set_rich_text_translation` for structured rich-text translations when available.
+- `ycode_get_unpublished_changes` reports unpublished translations and locales in 1.18.0. Use it before asking the user whether to publish.
 - The builder and preview read draft records (`is_published = false`) and can surface incomplete translations while editing.
 - The public frontend (`/en`, `/en/...`) reads published records only (`is_published = true`).
 - Public rendering also ignores translations where `is_completed` is false or `content_value` is empty.
@@ -274,11 +279,12 @@ order by source_id;
 
 Validation sequence after translating:
 
-1. Verify draft translations in `http://localhost:3002/ycode/localization?locale=en`.
-2. Verify the page composition with `ycode_get_layers(page_id)` and note each `componentId`.
-3. Check that those component IDs have draft translations marked `is_completed = true`.
-4. Publish only after user confirmation.
-5. Re-test `http://localhost:3002/en` and any translated slugs with Playwright or the browser.
+1. Discover keys with `ycode_list_translatable_content(..., locale_id)` and confirm expected items have `has_translation`/`is_completed` status.
+2. Verify draft translations in `http://localhost:3002/ycode/localization?locale=en`.
+3. Verify the page composition with `ycode_get_layers(page_id)` and note each `componentId`.
+4. Check `ycode_get_unpublished_changes` for pending translations/locales.
+5. Publish only after user confirmation.
+6. Re-test `http://localhost:3002/en` and any translated slugs with Playwright or the browser.
 
 If the builder looks translated but `/en` does not, the usual causes are:
 
@@ -286,3 +292,4 @@ If the builder looks translated but `/en` does not, the usual causes are:
 - translations are published but `is_completed = false`
 - translations were created under `source_type: "page"` while the text lives inside a component and must use `source_type: "component"`
 - the `source_id` is not the master `componentId` used by the page instance
+- component override text was translated as a component row instead of as a page-scoped override row surfaced by `ycode_list_translatable_content`

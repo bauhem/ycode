@@ -368,13 +368,17 @@ Localization rules:
 - If the Webflow source language is not the YCode primary locale, use the Webflow source copy as the translation for the matching secondary locale instead of as the component default.
 - Do not duplicate components per language.
 - Do not hardcode translated variants into page-specific layer trees.
+- In YCode 1.18.0, use `ycode_list_translatable_content` before writing translations. Treat its returned `source_type`, `source_id`, `content_key`, and `content_type` as authoritative.
 - Translate reusable section text as component translations with `source_type: "component"` and `source_id: <component_id>`.
 - Translate page-only text as page translations with `source_type: "page"` and `source_id: <page_id>`.
+- Translate per-instance component overrides as page translations. Discovery returns keys like `layer:<instance_layer_id>:override:text:<variable_id>`, `layer:<instance_layer_id>:override:rich_text:<variable_id>`, `layer:<instance_layer_id>:override:image_src:<variable_id>`, and `layer:<instance_layer_id>:override:image_alt:<variable_id>`.
 - Translate visible CMS fields used by imported collection lists with `source_type: "cms"` when the CMS item is reused across locales.
 - Use the content key format `layer:<layer_id>:text` for text layers.
 - For CMS field translations, use the project's CMS translation key convention, such as `field:key:<field_key>` when that is how existing CMS translations are stored.
 - Use `content_type: "text"` for simple text and `content_type: "richtext"` for rich text JSON.
 - Use the expanded rich-text translation support for rich-text fields/blocks instead of flattening structured content into plain strings.
+- Prefer `ycode_set_rich_text_translation` for rich-text content when available, so agents do not have to hand-build Tiptap JSON.
+- Translation batch writes validate all entries before saving. If one entry is invalid, none are saved; fix the reported index/key and retry the full batch.
 - Mark translations as completed only when the value is final and non-empty.
 - Batch translation writes when possible.
 - Record translation coverage in the import ledger.
@@ -386,10 +390,11 @@ Workflow:
 3. If they differ, translate/import default component/page/CMS text into the primary locale first.
 4. Inspect the page with `ycode_get_layers` to identify component instances and component IDs.
 5. Inspect each component with `ycode_get_component` and list text layer IDs.
-6. Check existing translations with `ycode_list_translations(locale_id)`.
-7. Upsert missing translations with `ycode_batch_set_translations`.
-8. Verify both the primary preview and the localized preview, for example `/ycode/preview/<page-slug>` and `/ycode/preview/<locale-code>/<page-slug>`.
-9. Verify the localization editor, for example `/ycode/localization?locale=<code>`.
+6. Discover exact keys with `ycode_list_translatable_content` for each relevant page, component, and CMS source.
+7. Check existing translations with `ycode_list_translations(locale_id)` or the discovery tool's `locale_id` status.
+8. Upsert missing translations with `ycode_batch_set_translations`.
+9. Verify both the primary preview and the localized preview, for example `/ycode/preview/<page-slug>` and `/ycode/preview/<locale-code>/<page-slug>`.
+10. Verify the localization editor, for example `/ycode/localization?locale=<code>`.
 
 Example component translation entry:
 
@@ -410,6 +415,7 @@ Publishing rule:
 - Localization writes are draft changes.
 - The builder/localization preview can show draft translations before public pages do.
 - Public localized pages only use published, completed, non-empty translations.
+- In YCode 1.18.0, use `ycode_get_unpublished_changes` to confirm pending translation/locale counts before publish discussion.
 - Never publish translations unless the user explicitly confirms publishing.
 
 ### 8. Apply Styles From Source, Not From Taste
