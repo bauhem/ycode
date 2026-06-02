@@ -86,3 +86,4 @@ release.sh
 .kilo/agent-manager.json
 inspect_db.ts
 webflow.json
+/.unlighthouse
