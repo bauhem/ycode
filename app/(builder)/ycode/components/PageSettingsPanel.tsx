@@ -65,6 +65,7 @@ export interface PageFormData {
   slug: string;
   page_folder_id?: string | null;
   is_published?: boolean;
+  is_publishable?: boolean;
   order?: number;
   depth?: number;
   is_index?: boolean;
@@ -247,6 +248,61 @@ const PageSettingsPanel = React.forwardRef<PageSettingsPanelHandle, PageSettings
   const isErrorPage = useMemo(() => currentPage?.error_page !== null, [currentPage]);
   const isDynamicPage = useMemo(() => currentPage?.is_dynamic === true, [currentPage]);
 
+  // Read the live store page so the status switch reflects optimistic updates
+  const livePage = useMemo(
+    () => (currentPage?.id ? pages.find((p) => p.id === currentPage.id) ?? currentPage : null),
+    [pages, currentPage]
+  );
+
+  // Pending homepage state from the form (a root index page is the homepage)
+  const willBeHomepage = useMemo(
+    () => isIndex && pageFolderId === null,
+    [isIndex, pageFolderId]
+  );
+
+  // Status can only be toggled on regular, persisted pages. A page that is (or is
+  // about to become) the homepage must stay live, so it never exposes the toggle.
+  const canHandleStatus = useMemo(
+    () =>
+      !!livePage &&
+      !isErrorPage &&
+      !isHomepage(livePage) &&
+      !willBeHomepage &&
+      !livePage.id.startsWith('temp-'),
+    [livePage, isErrorPage, willBeHomepage]
+  );
+
+  // Pending "stage for publish" value; applied on save rather than in real time
+  const [stageForPublish, setStageForPublish] = useState(true);
+  const stageForPublishInitialRef = useRef(true);
+
+  useEffect(() => {
+    const initial = currentPage ? currentPage.is_publishable !== false : true;
+    stageForPublishInitialRef.current = initial;
+    setStageForPublish(initial);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentPage?.id, currentPage?.is_publishable]);
+
+  // When the status toggle is shown but locked, explain why it can't be changed
+  const statusDisabledReason = useMemo(() => {
+    if (!livePage || canHandleStatus) return null;
+    if (isErrorPage) {
+      return 'Error pages cannot be turned into a draft page, they need to be accessible at all time so that visitors can see them.';
+    }
+    if (isHomepage(livePage) || willBeHomepage) {
+      return 'The homepage cannot be turned as a draft page, it needs to be accessible at all time so that visitors can reach your website.';
+    }
+    if (livePage.id.startsWith('temp-')) {
+      return 'Save this page first. After that, you can choose to publish it or keep it as a draft.';
+    }
+    return null;
+  }, [livePage, canHandleStatus, isErrorPage, willBeHomepage]);
+
+  // A locked homepage/error page is always live; reflect that in the checkbox
+  const statusChecked = canHandleStatus
+    ? stageForPublish
+    : willBeHomepage || livePage?.is_publishable !== false;
+
   // Get collection fields for variable insertion
   const collectionFields = useMemo(() => {
     if (!isDynamicPage) return [];
@@ -400,7 +456,8 @@ const PageSettingsPanel = React.forwardRef<PageSettingsPanelHandle, PageSettings
       dropdownCollectionId !== initial.dropdownCollectionId ||
       dropdownTargetPageId !== initial.dropdownTargetPageId ||
       dropdownItemsMode !== initial.dropdownItemsMode ||
-      dropdownSelectedItemIds.join('\0') !== initial.dropdownSelectedItemIds.join('\0')
+      dropdownSelectedItemIds.join('\0') !== initial.dropdownSelectedItemIds.join('\0') ||
+      (canHandleStatus && stageForPublish !== stageForPublishInitialRef.current)
     );
 
     // Clear rejected page when user makes changes (allows them to try navigating again)
@@ -410,7 +467,7 @@ const PageSettingsPanel = React.forwardRef<PageSettingsPanelHandle, PageSettings
 
     return hasChanges;
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [name, slug, pageFolderId, isIndex, seoTitle, seoDescription, seoImage, seoNoindex, customCodeHead, customCodeBody, authEnabled, authPassword, collectionId, slugFieldId, nextPrevSortBy, nextPrevSortOrder, hideInNav, hideInFooter, navLabel, navOrder, dropdownMode, dropdownFolderId, dropdownCollectionId, dropdownTargetPageId, dropdownItemsMode, dropdownSelectedItemIds, saveCounter]);
+  }, [name, slug, pageFolderId, isIndex, seoTitle, seoDescription, seoImage, seoNoindex, customCodeHead, customCodeBody, authEnabled, authPassword, collectionId, slugFieldId, nextPrevSortBy, nextPrevSortOrder, hideInNav, hideInFooter, navLabel, navOrder, dropdownMode, dropdownFolderId, dropdownCollectionId, dropdownTargetPageId, dropdownItemsMode, dropdownSelectedItemIds, stageForPublish, canHandleStatus, saveCounter]);
 
   // Expose method to check for unsaved changes externally
   useImperativeHandle(ref, () => ({
@@ -549,7 +606,8 @@ const PageSettingsPanel = React.forwardRef<PageSettingsPanelHandle, PageSettings
       dropdownCollectionId !== initialValuesRef.current.dropdownCollectionId ||
       dropdownTargetPageId !== initialValuesRef.current.dropdownTargetPageId ||
       dropdownItemsMode !== initialValuesRef.current.dropdownItemsMode ||
-      dropdownSelectedItemIds.join('\0') !== initialValuesRef.current.dropdownSelectedItemIds.join('\0')
+      dropdownSelectedItemIds.join('\0') !== initialValuesRef.current.dropdownSelectedItemIds.join('\0') ||
+      (canHandleStatus && stageForPublish !== stageForPublishInitialRef.current)
     );
 
     // If we have unsaved changes, show confirmation dialog BEFORE changing
@@ -1022,6 +1080,7 @@ const PageSettingsPanel = React.forwardRef<PageSettingsPanelHandle, PageSettings
         setDropdownTargetPageId(initialValuesRef.current.dropdownTargetPageId);
         setDropdownItemsMode(initialValuesRef.current.dropdownItemsMode);
         setDropdownSelectedItemIds(initialValuesRef.current.dropdownSelectedItemIds);
+        setStageForPublish(stageForPublishInitialRef.current);
       }
 
       rejectedPageRef.current = null;
@@ -1061,6 +1120,7 @@ const PageSettingsPanel = React.forwardRef<PageSettingsPanelHandle, PageSettings
         setDropdownTargetPageId(initialValuesRef.current.dropdownTargetPageId);
         setDropdownItemsMode(initialValuesRef.current.dropdownItemsMode);
         setDropdownSelectedItemIds(initialValuesRef.current.dropdownSelectedItemIds);
+        setStageForPublish(stageForPublishInitialRef.current);
       }
 
       rejectedPageRef.current = null;
@@ -1250,14 +1310,22 @@ const PageSettingsPanel = React.forwardRef<PageSettingsPanelHandle, PageSettings
       // Sanitize slug and remove trailing dashes before saving
       const finalSlug = isErrorPage || isIndex ? '' : (isDynamicPage ? '*' : sanitizeSlug(slug.trim(), false));
 
+      // Publish status is saved in the same request. A homepage/error page must
+      // stay live, so it is forced publishable; the server enforces this too.
+      const desiredPublishable = canHandleStatus ? stageForPublish : true;
+
       await onSave({
         name: name.trim(),
         slug: finalSlug,
         page_folder_id: pageFolderId,
         is_index: isIndex,
         is_published: false,
+        is_publishable: desiredPublishable,
         settings,
       });
+
+      stageForPublishInitialRef.current = desiredPublishable;
+      setStageForPublish(desiredPublishable);
 
       const trimmedName = name.trim();
       const trimmedSlug = isErrorPage || isIndex ? '' : (isDynamicPage ? '*' : sanitizeSlug(slug.trim(), false));
@@ -1713,6 +1781,26 @@ const PageSettingsPanel = React.forwardRef<PageSettingsPanelHandle, PageSettings
                         </SelectContent>
                       </Select>
                     </Field>
+
+                    {livePage && (
+                      <Field orientation="horizontal" className="flex flex-row-reverse!">
+                        <FieldContent>
+                          <FieldLabel htmlFor="pageSetAsDraft">
+                            Set as draft
+                          </FieldLabel>
+                          <FieldDescription>
+                            {statusDisabledReason ??
+                              'The next time you publish your website, draft pages will not be published and will be removed from the live website if previously published.'}
+                          </FieldDescription>
+                        </FieldContent>
+                        <Checkbox
+                          id="pageSetAsDraft"
+                          checked={!statusChecked}
+                          disabled={!canHandleStatus}
+                          onCheckedChange={(checked) => setStageForPublish(checked !== true)}
+                        />
+                      </Field>
+                    )}
 
                     <Field orientation="horizontal" className="flex flex-row-reverse!">
                       <FieldContent>
