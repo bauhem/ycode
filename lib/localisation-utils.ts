@@ -930,34 +930,44 @@ export function injectTranslatedText(
     //     overwriting `variables.text` here would strip the binding id and
     //     break that lookup chain.
     const hasComponentVariableBinding = !!(layer.variables?.text as any)?.id;
-    if (
-      textValue
-      && layer.variables?.text
-      && !(layer as any)._textFromOverride
-      && !hasComponentVariableBinding
-    ) {
-      // Choose the injected variable type based on the translation's stored
-      // content_type, not the source layer's. A `dynamic_text` source can have
-      // a `richtext` translation (e.g. translator added a line break, or legacy
-      // migration upgraded a translation containing `<br>`) — stuffing the raw
-      // Tiptap JSON into a `dynamic_text` variable would render as literal JSON.
-      // The renderer handles `dynamic_rich_text` on simple text/heading layers
-      // by flattening paragraphs into the layer's single tag.
-      // Drive the injected variable type off the actual value shape, not the
-      // stored `content_type` — legacy/mismatched rows can disagree (a `text`
-      // row holding a Tiptap JSON doc, or a `richtext` row holding plain text).
-      // This keeps generated pages correct regardless of the stored type.
-      if (looksLikeTiptapJson(textValue)) {
-        // Serialized Tiptap doc → rich content. The renderer flattens it for
-        // simple text/heading layers, so this is safe even when the source is
-        // a `dynamic_text` layer. Avoids rendering raw JSON as visible text.
-        (variableUpdates as any).text = createDynamicRichTextVariable(textValue);
-      } else if (layer.variables?.text?.type === 'dynamic_rich_text') {
-        // Plain-text value for a rich-text source: convert without JSON.parse.
-        (variableUpdates as any).text = createDynamicRichTextVariableFromPlainText(textValue);
+    if (textValue && layer.variables?.text && !(layer as any)._textFromOverride) {
+      if (hasComponentVariableBinding) {
+        // Layer has a component variable binding (variables.text.id).
+        // We cannot replace the whole variables.text (that would strip the binding),
+        // but we CAN inject the translated content into data.content so the
+        // renderer sees the translated default value when no instance override
+        // is provided.
+        const existingText = layer.variables.text as any;
+        if (looksLikeTiptapJson(textValue)) {
+          variableUpdates.text = {
+            ...existingText,
+            data: { content: JSON.parse(textValue) },
+          };
+        } else if (existingText.type === 'dynamic_rich_text') {
+          variableUpdates.text = {
+            ...existingText,
+            data: {
+              content: {
+                type: 'doc',
+                content: [{ type: 'paragraph', content: [{ type: 'text', text: textValue }] }],
+              },
+            },
+          };
+        } else {
+          variableUpdates.text = {
+            ...existingText,
+            data: { content: textValue },
+          };
+        }
       } else {
-        // Plain-text value for a simple text source.
-        (variableUpdates as any).text = createDynamicTextVariable(textValue);
+        // No component variable binding — replace the entire variables.text.
+        if (looksLikeTiptapJson(textValue)) {
+          (variableUpdates as any).text = createDynamicRichTextVariable(textValue);
+        } else if (layer.variables?.text?.type === 'dynamic_rich_text') {
+          (variableUpdates as any).text = createDynamicRichTextVariableFromPlainText(textValue);
+        } else {
+          (variableUpdates as any).text = createDynamicTextVariable(textValue);
+        }
       }
     }
 

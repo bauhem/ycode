@@ -383,6 +383,46 @@ Skipping any of these WILL produce incorrect results.
 - DevLink exports CMS lists as static elements or placeholders (`<NotSupported _atom="Collection List" />`). **Do NOT make components static if they are meant to display dynamic data (like Blogs, Services, Testimonials, Team, etc.).**
 - ALWAYS detect if the component needs a CMS list, look up the target collection (using `ycode_list_collections`), and implement a native YCode Collection List. Connect nested elements (headings, paragraphs, images) to their respective CMS fields dynamically.
 
+### ⚠️ Critical Rule: Collection Display Field Must Use `key: "name"` (Not `"title"`)
+
+The YCode builder uses the `key` column on `collection_fields` to determine which field to show in CMS item dropdowns (Link Settings, navigation, CMS item selectors). **If the key is anything other than `"name"`, the builder falls back to the first value in the item's values map — which is rarely correct.**
+
+#### Builder display-name resolution (do NOT look for `"title"`):
+
+| Function | File | Priority |
+|---|---|---|
+| `getCollectionItemDisplayName()` | `LinkItemOptions.tsx` | `name` → slug → first value → UUID |
+| `getItemLabel()` | `use-collection-item-search.ts` | `name` → first value → "Item {uuid}" |
+| `getCollectionItemLabel()` | `useCollectionsStore.ts` | `name` → "Item {uuid}" |
+| `getItemLabel()` | `page-navigation.ts` | `name` → `title` → `slug` → first visible text |
+
+Only `page-navigation.ts` checks for `key: "title"` as a fallback. **The other three (used in Link Settings and CMS item pickers) ONLY check `key: "name"`.**
+
+#### Fixing a broken collection dropdown:
+
+Both the `name` (UI label) and `key` columns must be `"Name"` / `"name"`:
+
+```sql
+-- Update both draft and published records
+UPDATE collection_fields SET key = 'name' WHERE id = '<title-field-id>' AND collection_id = '<collection-id>';
+UPDATE collection_fields SET name = 'Name' WHERE id = '<title-field-id>' AND collection_id = '<collection-id>';
+```
+
+This makes the field un-hideable in the builder UI — which is correct behavior (you should not hide the field that identifies each item).
+
+#### Known affected collections (fixed 2026-06-03):
+- **Services** — Title field `7b5d3470-...` was `key: "title"` → now `key: "name"`
+- **Case Studies** — Title field `a23d5228-...` was `key: "title"` → now `key: "name"`
+- **Blog Posts** — Title field `09fd739d-...` was `key: "title"` → now `key: "name"`
+- **Industrial Ideas** — Title field `7d59018c-...` was `key: "title"` → now `key: "name"`
+- **Pages** — Title field `6f1d7113-...` was `key: "title"` → now `key: "name"`
+
+#### Why Solutions worked while Services/Case Studies didn't:
+Solutions' first field already had `key: "name"`, matching the builder's lookup. The other two had `key: "title"`, which the builder ignores in 3 out of 4 resolution functions.
+
+#### Runtime note:
+`findDisplayField()` in `collection-field-utils.ts:591` (used by the public frontend) correctly checks BOTH `key === 'title'` and `key === 'name'` — so the frontend was never affected. This is a builder-only issue.
+
 ### Critical Rule: CMS Fields Must Have Stable Keys
 - Every CMS field created by an agent MUST include a stable `key` at creation time.
 - Use clear API-safe keys such as `name`, `description`, `slug`, `content`, `benefits`, `characteristics`, `author_name`, etc.

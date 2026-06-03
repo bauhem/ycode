@@ -1,0 +1,64 @@
+- generic [active] [ref=e1]:
+  - main [ref=e2]:
+    - generic [ref=e4]:
+      - link "Image" [ref=e6] [cursor=pointer]:
+        - /url: /ycode/preview/en/
+        - img "Image" [ref=e7]
+      - generic [ref=e8]:
+        - generic [ref=e11]:
+          - link "Services" [ref=e12] [cursor=pointer]:
+            - /url: /en/services
+          - img [ref=e14]
+        - generic [ref=e18]:
+          - link "Solutions" [ref=e19] [cursor=pointer]:
+            - /url: /en/solutions
+          - img [ref=e21]
+        - link "Contact" [ref=e26] [cursor=pointer]:
+          - /url: /en/contact
+        - link "Blog" [ref=e30] [cursor=pointer]:
+          - /url: /en/blog
+        - link "About" [ref=e34] [cursor=pointer]:
+          - /url: /en/about
+        - link "Works" [ref=e38] [cursor=pointer]:
+          - /url: /en/works
+        - generic [ref=e39]:
+          - generic [ref=e40]: English
+          - img [ref=e42]
+          - combobox "Select language" [ref=e44] [cursor=pointer]:
+            - option "English" [selected]
+            - option "Français"
+        - button "Analyser mon site" [ref=e45]:
+          - generic [ref=e46]: Analyser mon site
+    - generic [ref=e48]:
+      - generic [ref=e49]:
+        - generic [ref=e50]:
+          - heading "OSE Média | cultural brand, media platform and event discoverability" [level=1] [ref=e52]
+          - paragraph [ref=e54]: Brand creation, visual direction, content strategy, and development of a large-scale web platform for the Conseil de la culture de Québec. An ecosystem of 6,000+ events and 15,000+ performances built for cultural discoverability in Quebec.
+        - generic [ref=e55]:
+          - generic [ref=e56]:
+            - generic [ref=e57]: "Client :"
+            - generic [ref=e58]: OSE Média / Québec Spectacles
+          - generic [ref=e59]:
+            - generic [ref=e60]: "Focus :"
+            - generic [ref=e61]: To be defined
+          - generic [ref=e62]:
+            - generic [ref=e63]: "Date :"
+            - generic [ref=e64]: 31/12/2021
+      - img "Image" [ref=e66]
+    - generic [ref=e77]:
+      - generic [ref=e83] [cursor=pointer]:
+        - generic [ref=e84]: Discutons de votre projet
+        - img "Image" [ref=e85]
+      - img "Image" [ref=e87]
+  - generic [ref=e94] [cursor=pointer]:
+    - button "Open Next.js Dev Tools" [ref=e95]:
+      - img [ref=e96]
+    - generic [ref=e99]:
+      - button "Open issues overlay" [ref=e100]:
+        - generic [ref=e101]:
+          - generic [ref=e102]: "0"
+          - generic [ref=e103]: "1"
+        - generic [ref=e104]: Issue
+      - button "Collapse issues badge" [ref=e105]:
+        - img [ref=e106]
+  - alert [ref=e108]

@@ -9,7 +9,7 @@ import { getFieldsByCollectionId } from '@/lib/repositories/collectionFieldRepos
 import { enrichItemsWithCountValues } from '@/lib/repositories/collectionCountRepository';
 import type { Page, PageFolder, PageLayers, Component, ComponentVariable, CollectionItem, CollectionItemWithValues, CollectionField, Layer, CollectionPaginationMeta, Translation, Locale } from '@/types';
 import { getCollectionVariable, resolveFieldValue, evaluateVisibility, evaluateCondition, getLayerHtmlTag, filterDisabledSliderLayers } from '@/lib/layer-utils';
-import { isFieldVariable, isAssetVariable, createDynamicTextVariable, createDynamicRichTextVariable, createAssetVariable, getDynamicTextContent, getVariableStringValue, getAssetId, resolveDesignStyles } from '@/lib/variable-utils';
+import { isFieldVariable, isAssetVariable, createDynamicTextVariable, createDynamicRichTextVariable, createDynamicRichTextVariableFromPlainText, createAssetVariable, getDynamicTextContent, getVariableStringValue, getAssetId, resolveDesignStyles } from '@/lib/variable-utils';
 import { buildImageSizes, generateImageSrcset, getOptimizedImageUrl, getAssetProxyUrl, DEFAULT_ASSETS, collectLayerAssetIds, buildSvgDataUrl, parseImageDimension } from '@/lib/asset-utils';
 import { resolveComponents, applyComponentOverrides } from '@/lib/resolve-components';
 import { getComponentVariantLayers } from '@/lib/component-variant-utils';
@@ -563,7 +563,10 @@ async function fetchPageByPathInternal(
               let enhancedItemValues = await resolveReferenceFields(
                 collectionItem.values,
                 collectionFields,
-                isPublished
+                isPublished,
+                undefined,
+                undefined,
+                translations
               );
               enhancedItemValues = applyCmsTranslations(collectionItem.id, enhancedItemValues, collectionFields, translations, { includeIncomplete: !isPublished });
               enhancedItemValues = formatDateFieldsInItemValues(enhancedItemValues, collectionFields, timezone);
@@ -606,7 +609,10 @@ async function fetchPageByPathInternal(
             let enhancedItemValues = await resolveReferenceFields(
               collectionItem.values,
               collectionFields,
-              isPublished
+              isPublished,
+              undefined,
+              undefined,
+              translations
             );
 
             // Apply CMS translations to the item values
@@ -646,7 +652,7 @@ async function fetchPageByPathInternal(
               : [];
 
             // Resolve collections inside rich text embedded components
-            resolvedLayers = await resolveRichTextCollections(resolvedLayers, components, isPublished, translations);
+            resolvedLayers = await resolveRichTextCollections(resolvedLayers, components, isPublished, matchingPage.id, translations, undefined, detectedLocale?.code);
 
             // Apply translations (components already resolved above)
             if (detectedLocale && translations && Object.keys(translations).length > 0) {
@@ -755,7 +761,7 @@ async function fetchPageByPathInternal(
       ? await resolveCollectionLayers(layersWithComponents, isPublished, undefined, paginationContext, translations, undefined, timezone, detectedLocale)
       : [];
 
-    resolvedLayers = await resolveRichTextCollections(resolvedLayers, components, isPublished, translations);
+    resolvedLayers = await resolveRichTextCollections(resolvedLayers, components, isPublished, matchingPage.id, translations, undefined, detectedLocale?.code);
 
     // Apply translations (components already resolved above)
     if (detectedLocale && translations && Object.keys(translations).length > 0) {
@@ -866,7 +872,7 @@ export async function fetchErrorPage(
       : [];
 
     // Resolve collections inside rich text embedded components
-    resolvedLayers = await resolveRichTextCollections(resolvedLayers, components, isPublished);
+    resolvedLayers = await resolveRichTextCollections(resolvedLayers, components, isPublished, errorPage.id);
 
     // Resolve all AssetVariables to URLs server-side (prevents client-side API calls)
     const resolved = await resolveAllAssets(resolvedLayers, isPublished, components);
@@ -957,7 +963,7 @@ export const fetchHomepage = cache(async function fetchHomepage(
       : [];
 
     // Resolve collections inside rich text embedded components
-    resolvedLayers = await resolveRichTextCollections(resolvedLayers, components, isPublished, translations);
+    resolvedLayers = await resolveRichTextCollections(resolvedLayers, components, isPublished, homepage.id, translations, undefined, locale?.code);
 
     // Resolve all AssetVariables to URLs server-side (prevents client-side API calls)
     const resolved = await resolveAllAssets(resolvedLayers, isPublished, components);
@@ -1009,7 +1015,8 @@ async function resolveReferenceFields(
   fields: CollectionField[],
   isPublished: boolean,
   pathPrefix: string = '',
-  visited: Set<string> = new Set()
+  visited: Set<string> = new Set(),
+  translations?: Record<string, Translation>,
 ): Promise<Record<string, string>> {
   const enhancedValues = { ...itemValues };
 
@@ -1033,6 +1040,11 @@ async function resolveReferenceFields(
 
       const refFields = await getFieldsByCollectionId(field.reference_collection_id, isPublished, { excludeComputed: true });
 
+      // Apply CMS translations to referenced item's values
+      const translatedValues = translations && Object.keys(translations).length > 0
+        ? applyCmsTranslations(refItemId, refItem.values, refFields, translations, { includeIncomplete: !isPublished })
+        : refItem.values;
+
       // Build the path prefix for this level
       const currentPath = pathPrefix ? `${pathPrefix}.${field.id}` : field.id;
 
@@ -1040,7 +1052,7 @@ async function resolveReferenceFields(
       // e.g., if field is "Author" with id "abc123", and referenced item has "name" field with id "xyz789"
       // the value becomes accessible as "abc123.xyz789" in the values map
       for (const refField of refFields) {
-        const refValue = refItem.values[refField.id];
+        const refValue = translatedValues[refField.id];
         if (refValue !== undefined) {
           // Store as: parentFieldId.refFieldId for relationship path resolution
           enhancedValues[`${currentPath}.${refField.id}`] = refValue;
@@ -1049,11 +1061,12 @@ async function resolveReferenceFields(
 
       // Recursively resolve nested reference fields
       const nestedValues = await resolveReferenceFields(
-        refItem.values,
+        translatedValues,
         refFields,
         isPublished,
         currentPath,
-        visited
+        visited,
+        translations,
       );
 
       // Merge nested values (they'll have the full path)
@@ -1600,6 +1613,104 @@ function resolveRichTextVariables(
   return result;
 }
 
+const CONTENT_LISTING_COMPONENT_ID = 'dce9de95-68d4-4315-baed-116ff15b8ecc';
+
+const CONTENT_LISTING_COLLECTION_MAP: Record<string, { type: string; displayFieldId: string }> = {
+  'bd087197-8b23-46eb-810b-d3cada717b03': { type: 'Solution', displayFieldId: '554959b4-ad7e-49b3-9d5c-e46161fc00ca' },
+  '645dd26d-dffe-4673-9473-13d34e80fded': { type: 'Service', displayFieldId: '7b5d3470-e1ca-486e-9039-1864fc6ec3ae' },
+  '9a7e44dd-48c8-4cbe-b153-9b84ce9447c9': { type: 'Article', displayFieldId: '09fd739d-9c8b-4a3a-a2f7-35564b4da5d9' },
+};
+
+/**
+ * After resolving a "Content Listing 3 Colonnes" component, walk the resolved
+ * card layers and inject the linked item's name and collection type into the
+ * card title and type text layers.
+ *
+ * Card link variables contain a page link with collection_item_id pointing to
+ * a Solutions, Services, or Blog item. This fetches those items and writes
+ * the item name into card Titre layers, and the collection type label into
+ * card Type layers.
+ */
+async function resolveContentListingCards(
+  layers: Layer[],
+  overrides: Layer['componentOverrides'] | undefined,
+  isPublished: boolean,
+  localeCode?: string,
+): Promise<Layer[]> {
+  // Only inject CMS data on the default locale (French) where the CMS names match the page language.
+  // On other locales (e.g. English), the translation system handles card text — CMS injection
+  // would override translated defaults with French CMS names.
+  if (localeCode && localeCode !== 'fr') return layers;
+  if (!overrides?.link) return layers;
+
+  const linkVarIds = ['mpvlz3x7goefpa', 'mpvlz3x7ei1sxv', 'mpvlz3x7p52neg'];
+
+  const itemIds: string[] = [];
+  for (const varId of linkVarIds) {
+    const linkVal = overrides.link[varId] as LinkSettings | undefined;
+    const itemId = linkVal?.page?.collection_item_id;
+    if (itemId) itemIds.push(itemId);
+  }
+
+  if (itemIds.length === 0) return layers;
+
+  const itemsMap = await getItemsWithValuesByIds(itemIds, isPublished);
+  if (Object.keys(itemsMap).length === 0) return layers;
+
+  function injectCardData(layer: Layer): Layer {
+    const linkSettings = layer.variables?.link as LinkSettings | undefined;
+    const itemId = linkSettings?.page?.collection_item_id;
+
+    if (!itemId || !itemsMap[itemId]) {
+      if (layer.children) {
+        return { ...layer, children: layer.children.map(injectCardData) };
+      }
+      return layer;
+    }
+
+    const item = itemsMap[itemId];
+    const collectionInfo = CONTENT_LISTING_COLLECTION_MAP[item.collection_id];
+    if (!collectionInfo) {
+      if (layer.children) {
+        return { ...layer, children: layer.children.map(injectCardData) };
+      }
+      return layer;
+    }
+
+    const itemName = item.values[collectionInfo.displayFieldId] || '';
+    const children = [...(layer.children || [])];
+
+    if (children[0]) {
+      children[0] = {
+        ...children[0],
+        variables: {
+          ...children[0].variables,
+          text: createDynamicRichTextVariableFromPlainText(collectionInfo.type),
+        },
+      };
+    }
+
+    if (children[1]) {
+      children[1] = {
+        ...children[1],
+        variables: {
+          ...children[1].variables,
+          text: createDynamicRichTextVariableFromPlainText(itemName),
+        },
+      };
+    }
+
+    for (let i = 2; i < children.length; i++) {
+      children[i] = injectCardData(children[i]);
+    }
+
+    return { ...layer, children };
+  }
+
+  const result = layers.map(injectCardData);
+  return result;
+}
+
 /**
  * Walk Tiptap JSON nodes, resolve collections inside richTextComponent nodes,
  * and store the result as `_resolvedLayers` so the renderer can use them directly.
@@ -1609,8 +1720,10 @@ async function resolveTiptapComponentCollections(
   content: any,
   components: Component[],
   isPublished: boolean,
+  pageId?: string,
   translations?: Record<string, Translation>,
   ancestorComponentIds?: Set<string>,
+  localeCode?: string,
 ): Promise<any> {
   if (!content || typeof content !== 'object') return content;
 
@@ -1618,7 +1731,7 @@ async function resolveTiptapComponentCollections(
     let changed = false;
     const result = await Promise.all(
       content.map(async (node: any) => {
-        const resolved = await resolveTiptapComponentCollections(node, components, isPublished, translations, ancestorComponentIds);
+        const resolved = await resolveTiptapComponentCollections(node, components, isPublished, pageId, translations, ancestorComponentIds, localeCode);
         if (resolved !== node) changed = true;
         return resolved;
       })
@@ -1649,11 +1762,30 @@ async function resolveTiptapComponentCollections(
         const withComponents = resolveComponents(withOverrides, components, comp.variables, overrides);
         const withCollections = await resolveCollectionLayers(withComponents, isPublished, undefined, undefined, translations);
 
+        // Apply component-scope translations to embedded component layers
+        const withTranslations = pageId && translations && Object.keys(translations).length > 0
+          ? injectTranslatedText(withCollections, pageId, translations, {
+            includeIncomplete: !isPublished,
+            defaultMasterComponentId: comp.id,
+          })
+          : withCollections;
+
         // Recursively resolve rich text components inside the resolved layers
         // (handles Component A → rich text → Component B → collection)
-        const fullyResolved = await resolveRichTextCollections(
-          withCollections, components, isPublished, translations, childAncestors,
+        let fullyResolved = await resolveRichTextCollections(
+          withTranslations, components, isPublished, pageId, translations, childAncestors, localeCode,
         );
+
+        // Content Listing 3 Colonnes: resolve card title and type from linked
+        // CMS items instead of showing component-level variable placeholders.
+        if (componentId === CONTENT_LISTING_COMPONENT_ID) {
+          fullyResolved = await resolveContentListingCards(
+            fullyResolved,
+            node.attrs.componentOverrides,
+            isPublished,
+            localeCode,
+          );
+        }
 
         node = {
           ...node,
@@ -1666,7 +1798,7 @@ async function resolveTiptapComponentCollections(
 
   // Recurse into content array
   if (Array.isArray(node.content)) {
-    const resolvedContent = await resolveTiptapComponentCollections(node.content, components, isPublished, translations, ancestorComponentIds);
+    const resolvedContent = await resolveTiptapComponentCollections(node.content, components, isPublished, pageId, translations, ancestorComponentIds, localeCode);
     if (resolvedContent !== node.content) {
       node = { ...node, content: resolvedContent };
       nodeChanged = true;
@@ -1686,8 +1818,10 @@ export async function resolveRichTextCollections(
   layers: Layer[],
   components: Component[],
   isPublished: boolean,
+  pageId?: string,
   translations?: Record<string, Translation>,
   ancestorComponentIds?: Set<string>,
+  localeCode?: string,
 ): Promise<Layer[]> {
   if (!components.length) return layers;
 
@@ -1698,7 +1832,7 @@ export async function resolveRichTextCollections(
     const textVar = layer.variables?.text;
     if (textVar?.type === 'dynamic_rich_text' && textVar.data?.content) {
       const resolved = await resolveTiptapComponentCollections(
-        textVar.data.content, components, isPublished, translations, ancestorComponentIds,
+        textVar.data.content, components, isPublished, pageId, translations, ancestorComponentIds, localeCode,
       );
       if (resolved !== textVar.data.content) {
         updated = {

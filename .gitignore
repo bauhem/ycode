@@ -32,6 +32,9 @@ mcp-supabase/
 .opencode/
 .specify/
 
+# temp files (Yode register alias / server-only)
+.tmp-*
+
 # debug
 npm-debug.log*
 yarn-debug.log*

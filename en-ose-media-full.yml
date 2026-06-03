@@ -1,0 +1,59 @@
+- generic [active] [ref=e1]:
+  - main [ref=e2]:
+    - generic [ref=e4]:
+      - link "Image" [ref=e6] [cursor=pointer]:
+        - /url: /en/
+        - img "Image" [ref=e7]
+      - generic [ref=e8]:
+        - generic [ref=e11]:
+          - link "Services" [ref=e12] [cursor=pointer]:
+            - /url: /en/services
+          - img [ref=e14]
+        - generic [ref=e18]:
+          - link "Solutions" [ref=e19] [cursor=pointer]:
+            - /url: /en/solutions
+          - img [ref=e21]
+        - link "Contact" [ref=e26] [cursor=pointer]:
+          - /url: /en/contact
+        - link "Blog" [ref=e30] [cursor=pointer]:
+          - /url: /en/blog
+        - link "About" [ref=e34] [cursor=pointer]:
+          - /url: /en/about
+        - link "Works" [ref=e38] [cursor=pointer]:
+          - /url: /en/works
+        - generic [ref=e39]:
+          - generic [ref=e40]: English
+          - img [ref=e42]
+          - combobox "Select language" [ref=e44] [cursor=pointer]:
+            - option "English" [selected]
+            - option "Français"
+        - button "Analyser mon site" [ref=e45]:
+          - generic [ref=e46]: Analyser mon site
+    - generic [ref=e48]:
+      - generic [ref=e49]:
+        - generic [ref=e50]:
+          - heading "OSE Média | cultural brand, media platform and event discoverability" [level=1] [ref=e89]
+          - paragraph [ref=e91]: Brand creation, visual direction, content strategy, and development of a large-scale web platform for the Conseil de la culture de Québec. An ecosystem of 6,000+ events and 15,000+ performances built for cultural discoverability in Quebec.
+        - generic [ref=e92]:
+          - generic [ref=e93]:
+            - generic [ref=e94]: "Client :"
+            - generic [ref=e95]: OSE Média / Québec Spectacles
+          - generic [ref=e96]:
+            - generic [ref=e97]: "Focus :"
+            - generic [ref=e98]: Design & Branding
+          - generic [ref=e99]:
+            - generic [ref=e100]: "Date :"
+            - generic [ref=e101]: 31/12/2021
+      - img "Image" [ref=e103]
+    - generic [ref=e61]:
+      - generic [ref=e67] [cursor=pointer]:
+        - generic [ref=e68]: Discutons de votre projet
+        - img "Image" [ref=e69]
+      - img "Image" [ref=e71]
+  - link "This website was built using Ycode." [ref=e74] [cursor=pointer]:
+    - /url: https://ycode.com
+    - img [ref=e75]
+    - img [ref=e77]
+  - button "Open Next.js Dev Tools" [ref=e84] [cursor=pointer]:
+    - img [ref=e85]
+  - alert [ref=e104]

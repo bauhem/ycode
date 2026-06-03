@@ -14,11 +14,13 @@ import { readFile } from 'node:fs/promises';
 import { join, dirname } from 'node:path';
 import { compile } from 'tailwindcss';
 import type { Layer, Component } from '@/types';
-import { DEFAULT_TEXT_STYLES } from '@/lib/text-format-utils';
-import { getAllDraftLayers, getDraftLayers } from '@/lib/repositories/pageLayersRepository';
+import { collectComponentIds } from '@/lib/component-utils';
 import { getAllComponents } from '@/lib/repositories/componentRepository';
+import { getAllDraftLayers, getDraftLayers } from '@/lib/repositories/pageLayersRepository';
+import { getPageById } from '@/lib/repositories/pageRepository';
 import { setSetting } from '@/lib/repositories/settingsRepository';
 import { getSupabaseAdmin } from '@/lib/supabase-server';
+import { DEFAULT_TEXT_STYLES } from '@/lib/text-format-utils';
 
 /**
  * Extract all Tailwind classes from a layer tree.
@@ -159,9 +161,14 @@ export async function generateCSSForPage(pageId: string): Promise<string | null>
   const pageLayers = await getDraftLayers(pageId);
   if (!pageLayers?.layers) return null;
 
-  const components = await getAllComponents(false);
+  const [components, page] = await Promise.all([
+    getAllComponents(false),
+    getPageById(pageId, false),
+  ]);
 
-  const layersForCss = collectLayersWithComponents(pageLayers.layers, components);
+  const layersForCss = page?.is_dynamic
+    ? collectLayersWithAllComponents(pageLayers.layers, components)
+    : collectLayersWithComponents(pageLayers.layers, components);
   const classes = extractClassesFromLayers(layersForCss);
   const css = await compileCss(Array.from(classes));
 
@@ -202,35 +209,58 @@ export async function generateCSSForPages(pageIds: string[]): Promise<number> {
  */
 function collectLayersWithComponents(pageLayers: Layer[], components: Component[]): Layer[] {
   const result: Layer[] = [...pageLayers];
-  const componentMap = new Map(components.map(c => [c.id, c]));
+  const componentMap = new Map(components.map(component => [component.id, component]));
   const visitedComponentIds = new Set<string>();
 
-  function findComponentRefs(layers: Layer[]) {
-    for (const layer of layers) {
-      if (layer.componentId && !visitedComponentIds.has(layer.componentId)) {
-        visitedComponentIds.add(layer.componentId);
-        const component = componentMap.get(layer.componentId);
-        if (component) {
-          if (component.variants && component.variants.length > 0) {
-            for (const variant of component.variants) {
-              result.push(...(variant.layers ?? []));
-            }
-            for (const variant of component.variants) {
-              findComponentRefs(variant.layers ?? []);
-            }
-          } else if (component.layers) {
-            result.push(...component.layers);
-            findComponentRefs(component.layers);
-          }
-        }
-      }
-      if (layer.children) {
-        findComponentRefs(layer.children);
+  function visitComponent(componentId: string): void {
+    if (visitedComponentIds.has(componentId)) return;
+    visitedComponentIds.add(componentId);
+
+    const component = componentMap.get(componentId);
+    if (!component) return;
+
+    const componentLayerGroups = component.variants && component.variants.length > 0
+      ? component.variants.map(variant => variant.layers ?? [])
+      : [component.layers ?? []];
+
+    for (const layers of componentLayerGroups) {
+      result.push(...layers);
+
+      const nestedComponentIds = collectComponentIds(layers);
+      for (const nestedComponentId of nestedComponentIds) {
+        visitComponent(nestedComponentId);
       }
     }
   }
 
-  findComponentRefs(pageLayers);
+  const pageComponentIds = collectComponentIds(pageLayers);
+  for (const componentId of pageComponentIds) {
+    visitComponent(componentId);
+  }
+
+  return result;
+}
+
+/**
+ * Dynamic CMS pages can render extra components from collection-item rich text,
+ * which are not visible in the template layer tree alone. For those pages,
+ * include every component layer so published routes cannot miss CSS that is
+ * only referenced inside CMS rich-text content.
+ */
+function collectLayersWithAllComponents(pageLayers: Layer[], components: Component[]): Layer[] {
+  const result: Layer[] = [...pageLayers];
+
+  for (const component of components) {
+    if (component.variants && component.variants.length > 0) {
+      for (const variant of component.variants) {
+        result.push(...(variant.layers ?? []));
+      }
+      continue;
+    }
+
+    result.push(...(component.layers ?? []));
+  }
+
   return result;
 }
 
