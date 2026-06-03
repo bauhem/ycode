@@ -140,6 +140,34 @@ Every CMS field created by an agent must have a stable `key` from the start.
 - After creating fields, verify draft and published field records both have the same non-null key.
 - If fixing a legacy null-key field, add the key and insert translation aliases non-destructively. Do not delete or mutate existing translation rows.
 
+### ⚠️ Critical: collection display field must use `key: 'name'` (not `'title'`)
+
+The YCode builder uses the `key` column on `collection_fields` to determine which field to show in CMS item dropdowns (Link Settings, navigation, CMS item selectors). **If the key is anything other than `'name'`, the builder falls back to the first value in the item's values map — which is rarely correct.**
+
+Builder display-name resolution — the builder does NOT look for `'title'`:
+
+| Function | File | Priority |
+|---|---|---|
+| `getCollectionItemDisplayName()` | `app/(builder)/ycode/components/LinkItemOptions.tsx` | `name` → slug → first value → UUID |
+| `getItemLabel()` | `hooks/use-collection-item-search.ts` | `name` → first value → "Item {uuid}" |
+| `getCollectionItemLabel()` | `stores/useCollectionsStore.ts` | `name` → "Item {uuid}" |
+| `getItemLabel()` | `lib/page-navigation.ts` | `name` → `title` → `slug` → first visible text |
+
+Only the navigation resolver checks `key: 'title'` as a fallback. The other three (Link Settings, CMS item pickers) ONLY check `key: 'name'`.
+
+**Fixing a broken collection dropdown:**
+
+Both `name` (UI label) and `key` columns must be `"Name"` / `"name"`:
+
+```sql
+UPDATE collection_fields SET key = 'name' WHERE id = '<field-id>' AND collection_id = '<collection-id>';
+UPDATE collection_fields SET name = 'Name' WHERE id = '<field-id>' AND collection_id = '<collection-id>';
+```
+
+This makes the field un-hideable in the builder UI — which is correct behavior (you should not hide the field that identifies each item).
+
+**Runtime note:** `findDisplayField()` in `lib/collection-field-utils.ts:591` (used by the public frontend) correctly checks BOTH `key === 'title'` and `key === 'name'` — so the frontend was never affected. This is a builder-only issue.
+
 - Put the text layer under an ancestor with `variables.collection` for the target collection.
 - Store text bindings as `variables.text.type = "dynamic_rich_text"`.
 - Put the field reference inside a Tiptap `dynamicVariable` node.

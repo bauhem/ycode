@@ -1649,4 +1649,36 @@ export async function down(knex: Knex): Promise<void> {
 
 ---
 
+## 🏷️ 25. CMS Collection Display Field — MUST Use `key: 'name'`
+
+### Builder Display-Name Resolution (do NOT look for `'title'`)
+
+The YCode builder uses `key: 'name'` (NOT `'title'`) to determine which field to show in CMS item dropdowns (Link Settings, navigation, CMS item selectors):
+
+| Function | File | Priority |
+|---|---|---|
+| `getCollectionItemDisplayName()` | `app/(builder)/ycode/components/LinkItemOptions.tsx` | `name` → slug → first value → UUID |
+| `getItemLabel()` | `hooks/use-collection-item-search.ts` | `name` → first value → "Item {uuid}" |
+| `getCollectionItemLabel()` | `stores/useCollectionsStore.ts` | `name` → "Item {uuid}" |
+| `getItemLabel()` | `lib/page-navigation.ts` | `name` → `title` → `slug` → first visible text |
+
+Only `page-navigation.ts` checks for `key: 'title'` as a fallback. The other three ONLY check `key: 'name'`.
+
+### Fixing a broken collection dropdown
+
+Both `name` (UI label) and `key` columns must be `"Name"` / `"name"`:
+
+```sql
+UPDATE collection_fields SET key = 'name' WHERE id = '<field-id>' AND collection_id = '<collection-id>';
+UPDATE collection_fields SET name = 'Name' WHERE id = '<field-id>' AND collection_id = '<collection-id>';
+```
+
+This makes the field un-hideable in the builder UI — correct behavior (the identifying field should always be visible).
+
+### Runtime Note
+
+`findDisplayField()` in `lib/collection-field-utils.ts:591` (used by the public frontend) checks BOTH `key === 'title'` and `key === 'name'` — so the frontend was never affected. This is a builder-only issue.
+
+---
+
 **Remember**: Consistency > Cleverness. A fast-moving team needs predictable patterns, not creative solutions.
