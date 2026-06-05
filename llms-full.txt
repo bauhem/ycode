@@ -1,0 +1,505 @@
+# Bauhem
+
+> Agence digitale spécialisée en sites web, systèmes composables et découvrabilité IA.
+
+**URL:** https://admin.bauhem.com
+**Langue par défaut:** Français
+**Langue secondaire:** Anglais
+**Fondateur:** Guillaume Gosselin, Alma, Québec
+**Année de fondation:** 2012
+
+Bauhem conçoit des sites, portails et systèmes web structurés pour les PME qui veulent être trouvées, comprises et citées par les humains ET par l'IA. Expert Ycode, Webflow et DatoCMS.
+
+---
+
+## Services
+
+### SEO, AEO & découvrabilité
+
+**Durée:** 4 à 8 semaines
+**Type:** Stratégie & Optimisation
+**Idéal pour:** PME qui veulent être visibles dans Google ET dans ChatGPT, Claude, Perplexity.
+
+Structurer les contenus, métadonnées et signaux techniques pour que le site soit performant dans les moteurs de recherche ET dans les réponses des assistants IA.
+
+**Détails:** Optimisation technique et éditoriale complète : architecture sémantique, données structurées, maillage interne, contenu optimisé pour le Search Generative Experience et l'Answer Engine Optimization. Audit de découvrabilité IA avec tests sur GPTBot, ClaudeBot, PerplexityBot.
+
+---
+
+### Systèmes web & CMS composables
+
+**Durée:** 6 à 16 semaines
+**Type:** Développement & Architecture
+**Idéal pour:** Entreprises qui veulent un site évolutif, un CMS flexible ou un portail métier sans refaire le développement tous les 2 ans.
+
+Création de sites et systèmes web sur des bases solides : CMS composable, architecture de contenu, collections, relations, pages dynamiques et interfaces administrables. Choix de la plateforme selon le projet.
+
+---
+
+### Design & Branding
+
+**Durée:** 4 à 8 semaines
+**Type:** Stratégie & Création
+**Idéal pour:** Entreprises qui doivent clarifier leur image de marque et structurer leur message avant de lancer ou moderniser leur site.
+
+Définition des attributs de marque, message, direction visuelle et architecture de contenu. Approche bilingue français/anglais.
+
+---
+
+### Agentic AI - Implémentation en entreprise
+
+**Durée:** 4 à 10 semaines
+**Type:** Conseil & Implémentation
+**Idéal pour:** PME qui veulent comprendre comment l'IA générative et les agents IA peuvent s'appliquer concrètement à leurs opérations.
+
+Structurer les données, contenus et workflows pour intégrer des assistants IA, MCP, automation et outils d'IA générative dans les opérations quotidiennes.
+
+---
+
+### Développement d'applications assisté par IA
+
+**Durée:** 4 à 12 semaines
+**Type:** Développement & Prototypage
+**Idéal pour:** Entreprises qui veulent un prototype ou une première version d'une application web sans investir dans une équipe de développement complète.
+
+Création d'applications web légères, prototypes fonctionnels et outils internes avec l'assistance de l'IA (vibe coding). Approche rapide, itérative et économique.
+
+---
+
+### Optimisation des processus et transformation numérique
+
+**Durée:** 4 à 10 semaines
+**Type:** Conseil & Optimisation
+**Idéal pour:** PME qui fonctionnent encore avec des feuilles de calcul, courriels et processus manuels qui ralentissent les opérations.
+
+Analyse des processus existants, identification des irritants et opportunités d'automatisation. Mise en place de solutions concrètes : formulaires structurés, bases de données, suivis automatisés, portails.
+
+---
+
+## Solutions
+
+### Portails clients, employés et outils internes
+
+Créer des interfaces privées pour centraliser l'information, les demandes, les suivis et les opérations qui sont encore gérés par courriel, fichiers ou outils séparés.
+
+**Bénéfices:**
+- Centraliser les demandes, documents, suivis et informations importantes
+- Réduire les échanges répétitifs par courriel et les manipulations manuelles
+- Améliorer l'expérience client, employé ou partenaire avec une interface professionnelle
+- Créer une base exploitable pour l'automatisation, les données et l'IA
+- Livrer une solution utile rapidement, sans lancer un développement logiciel lourd dès le départ
+
+**Caractéristiques:**
+- Portail client, portail employé, espace partenaire, tableau de bord, catalogue privé ou outil interne léger
+- Authentification, permissions, formulaires avancés, données structurées et vues adaptées selon les rôles
+- Connexion possible avec CMS, bases de données, Shopify, Calendly, Supabase, Ycode ou autres outils existants
+- Interface pensée pour être simple à utiliser, administrable par l'équipe et assez flexible pour évoluer avec les opérations
+- Approche progressive : première version utile et concurrentielle, puis amélioration continue
+
+---
+
+### Sites structurés pour la découvrabilité
+
+Structurer les pages, contenus et données pour être mieux compris par les utilisateurs, Google, les moteurs de réponse et les systèmes d'IA.
+
+**Bénéfices:**
+- Clarifier l'offre pour que les visiteurs comprennent rapidement ce que l'entreprise fait
+- Améliorer la capacité du site à être exploré, indexé et interprété par Google et les moteurs IA
+- Créer du contenu qui répond à de vraies intentions de recherche
+- Renforcer les signaux de confiance avec des preuves, cas d'usage, expériences
+- Transformer le site en actif d'acquisition durable
+
+**Caractéristiques:**
+- Architecture de pages basée sur les intentions réelles des prospects
+- Structure sémantique claire : titres, sections, maillage interne, métadonnées
+- Optimisation SEO, AEO et GEO
+- Intégration de Schema.org, FAQ, données structurées
+- Pages conçues pour éduquer le prospect et l'amener vers une demande de devis
+
+---
+
+### Automatisation des processus et données
+
+Structurer les formulaires, bases de données, suivis et workflows pour réduire le travail manuel, fiabiliser les opérations et rendre l'information exploitable.
+
+**Bénéfices:**
+- Réduire les suivis manuels, les doubles saisies et les erreurs de traitement
+- Centraliser les demandes, données et statuts dans un système plus fiable
+- Créer des workflows plus rapides à comprendre et à améliorer
+- Préparer les données pour l'IA, les assistants internes et l'automatisation avancée
+- Gains concrets sans imposer une plateforme lourde ou coûteuse
+
+**Caractéristiques:**
+- Cartographie des étapes répétitives et points de perte d'information
+- Formulaires structurés reliés à des bases de données, vues internes ou portails
+- Automatisations simples : notifications, suivis, statuts, assignations
+- Architecture de données compréhensible par l'équipe et exploitable par l'IA
+- Intégrations progressives avec les outils existants
+
+---
+
+### Migration vers Ycode et systèmes composables
+
+Remplacer un site, un CMS ou des outils dispersés par une base Ycode plus centralisée : design, contenu, formulaires, données, automatisation et IA connectée.
+
+**Bénéfices:**
+- Réunir design, CMS, formulaires, données et workflows dans un environnement cohérent
+- Réduire la complexité des outils dispersés, plugins et intégrations fragiles
+- Migrer sans reproduire les limites de l'ancien système
+- Créer une base adaptée aux portails, applications métier, automatisations
+- Solution moderne, rapide à faire évoluer et souvent plus concurrentielle
+
+**Caractéristiques:**
+- Analyse de l'écosystème existant
+- Reconstruction des modèles de contenu et pages dynamiques
+- Migration structurée avec attention au SEO, URLs, métadonnées
+- Architecture composable adaptée aux besoins réels
+- Préparation du système pour l'IA
+
+---
+
+### Modernisation de sites et systèmes vieillissants
+
+Moderniser un ancien site, un CMS lourd ou des outils fragmentés avec une infrastructure numérique plus simple, plus performante et prête à évoluer avec l'IA.
+
+**Bénéfices:**
+- Remplacer une base vieillissante par une infrastructure plus simple à opérer
+- Réduire la dépendance aux extensions, outils externes et processus bricolés
+- Améliorer la structure du contenu pour le SEO, l'AEO et la découvrabilité IA
+- Préparer l'entreprise à intégrer portails, automatisations et agents IA
+- Solution moderne à coût souvent plus concurrentiel qu'un développement sur mesure
+
+**Caractéristiques:**
+- Audit de l'existant : site, CMS, formulaires, contenus, données
+- Nouvelle architecture de contenu et de données
+- Migration ou reconstruction progressive
+- Interfaces administrables pour l'équipe
+- Fondation prête pour l'automatisation et la croissance future
+
+---
+
+### Branding, structure et contenu
+
+Clarifier la marque, les attributs, le message et l'architecture de contenu pour rendre l'offre plus lisible, crédible et facile à vendre.
+
+**Bénéfices:**
+- Clarifier le positionnement et les messages clés
+- Créer une direction visuelle cohérente
+- Rendre les contenus plus faciles à structurer et publier
+- Améliorer la crédibilité perçue
+- Donner une base solide aux pages SEO et aux interfaces futures
+
+**Caractéristiques:**
+- Définition des attributs de marque : personnalité, ton, promesse, différenciation
+- Clarification du message : offre, publics, intentions, arguments, preuves
+- Architecture de contenu : pages, services, solutions, cas d'usage
+- Stylescapes, directions visuelles, typographie, couleurs, iconographie
+- Approche bilingue français et anglais
+
+---
+
+## Blog
+
+### GEO vs AEO : comment vérifier si votre site est vraiment visible pour l'IA (et corriger le problème)
+
+**Auteur:** Guillaume Gosselin
+**Catégorie:** Blog
+**Date:** 3 juin 2026
+**Description:** Guide pratique pour diagnostiquer si votre site est invisible pour ChatGPT, Claude et Perplexity. Méthode de test en 2 minutes, correctifs et audit concret du site Bauhem.
+
+La plupart des entreprises assument qu'un bon positionnement Google suffit. C'était vrai il y a deux ans. Ce ne l'est plus.
+
+Aujourd'hui, vos clients ne passent pas tous par une barre de recherche Google. Ils posent des questions à ChatGPT. Ils utilisent Claude pour comparer des fournisseurs. Ils interrogent Perplexity avant de visiter un site.
+
+Et si votre site est techniquement invisible pour ces moteurs de réponse, vous n'existez tout simplement pas dans leurs résultats. Le pire ? Vous ne le saurez jamais en naviguant normalement sur votre propre site.
+
+**Les deux couches de découvrabilité IA**
+
+Il faut distinguer deux choses que presque tout le monde confond.
+
+**GEO (Generative Engine Optimization) :** c'est l'optimisation pour les AI Overviews de Google et les réponses intégrées aux résultats de recherche. Google exécute le JavaScript de votre page dans une seconde passe, et finit par comprendre votre contenu.
+
+**AEO (Answer Engine Optimization) :** c'est l'optimisation pour les assistants autonomes — ChatGPT, Claude, Perplexity. Leurs crawlers récupèrent votre HTML brut, sans exécuter le JavaScript. Si votre contenu est injecté par du JS après le chargement initial, ces crawlers voient une coquille vide.
+
+Le résultat ? Google peut très bien vous citer dans un AI Overview pendant que ChatGPT n'a absolument aucune idée de ce que vous faites.
+
+**Le test en 2 minutes**
+
+1. Ouvrez une page importante dans un navigateur
+2. Clic droit > « Afficher le code source de la page »
+3. Cherchez une phrase de contenu principal
+4. Si elle est présente, les crawlers IA peuvent la lire. Sinon, votre contenu est chargé via JavaScript.
+
+**L'audit Bauhem (3 juin 2026) :** Body text dans le HTML brut : 6 781 caractères. GPTBot ✅, ClaudeBot ✅, PerplexityBot ✅. Aucun crawler IA bloqué. Sitemap présent, hreflang FR/EN. Schema.org Organization + WebSite + WebPage + BreadcrumbList.
+
+**Correctifs par ordre d'impact :**
+1. Rendu côté serveur (SSR) ou génération statique
+2. Vérifier robots.txt (ne pas bloquer GPTBot, ClaudeBot, PerplexityBot)
+3. Données structurées Schema.org
+4. Contenu autonome et extractible
+
+---
+
+### Ycode vs Webflow : 7 raisons pour lesquelles Bauhem choisit un CMS open source prêt pour l'IA
+
+**Auteur:** Guillaume Gosselin
+**Catégorie:** Blog
+**Date:** 2 juin 2026
+**Description:** Après des années sur Webflow, j'ai migré ma pratique d'agence vers Ycode. Voici les 7 réalités qui ont pesé dans la balance.
+
+J'ai passé plusieurs années sur Webflow. Je connais la plateforme, ses forces, ses limites. Je l'ai utilisée pour des sites vitrines, des portails clients, des projets complexes avec CMS.
+
+Mais depuis quelques mois, j'ai migré ma pratique d'agence vers Ycode. Pas sur un coup de tête — après avoir testé, comparé, et surtout après avoir constaté des différences structurelles qui changent la donne pour une agence qui bâtit des systèmes numériques sérieux.
+
+**1. Des relations CMS qui fonctionnent dans les deux sens**
+
+Quand une collection est liée à une autre dans Ycode, la relation existe dans les deux sens. Exemple concret : une collection « Services » liée à une collection « Études de cas ». Dans Webflow, afficher tous les cas clients liés à un service donné dans l'autre sens, c'est du bricolage. Ycode gère ça nativement. Au-delà des relations inverses, on peut filtrer dynamiquement des listes, afficher ou masquer du contenu selon des conditions, et alimenter des sélecteurs directement à partir d'une collection CMS.
+
+**2. Tout devient un lien, sans wrapper inutile**
+
+Dans Ycode, presque n'importe quel élément peut devenir un lien : une image, un div, un bloc de texte. Pas besoin d'envelopper dans un Link Block. Sur un projet de 30 ou 40 pages, chaque wrapper en moins c'est du temps sauvé.
+
+**3. Du composable design directement dans le rich text**
+
+Dans le rich text editor, on peut insérer une composante — n'importe laquelle — au milieu d'un article. Une composante qui peut pointer vers d'autres collections CMS, afficher du contenu dynamique, et être mise à jour une seule fois pour se répercuter partout. Dans Webflow, ce niveau de composable design dans les collections CMS n'existe pas.
+
+**4. Preview protégé, sans stress**
+
+Le mode `/ycode/preview/[slug]` est un environnement de staging protégé pour valider une page avant publication, sans exposer les changements au public.
+
+**5. Formulaires inclus, sans plugins ni détours**
+
+Avec Ycode, les formulaires sont inclus. On configure un SMTP, et c'est prêt. Pas de Zapier, Make ou webhook bricolé.
+
+**6. IA + visual builder : le bon outil au bon moment**
+
+Le MCP Ycode permet à des outils d'IA (Claude, Codex, Cursor) de comprendre, construire et modifier des composantes et des interfaces directement dans Ycode. Le système de styling est architecturalement plus solide que celui de Webflow, donc l'IA peut intervenir sans repartir de zéro.
+
+**7. Open Source, donc liberté d'évolution**
+
+Ycode est Open Source. On peut l'intégrer, l'adapter, le connecter à d'autres systèmes. Pas de plateforme fermée qui dicte ses conditions. Pas de changements de prix surprises ou de décisions produit subies.
+
+---
+
+### SEO 2026 : recherche vocale, snippets et EEAT
+
+**Auteur:** Bauhem
+**Catégorie:** Blog
+**Description:** Les nouvelles règles du référencement en 2026 : comment préparer votre site pour la recherche vocale, les extraits optimisés et les critères EEAT de Google.
+
+Le SEO en 2026 n'a plus rien à voir avec celui d'il y a cinq ans. Entre la recherche vocale, les snippets, l'EEAT et les réponses IA, les règles du jeu ont changé.
+
+**Recherche vocale :** Avec les assistants vocaux, la recherche vocale représente plus de 30% des recherches sans écran. Il faut cibler des mots-clés conversationnels, structurer le contenu en FAQ et utiliser le schéma markup.
+
+**EEAT (Expertise, Expérience, Autorité, Fiabilité) :** Google valorise désormais l'expérience réelle. Pour les sites québécois, cela signifie valoriser l'expertise locale, citer des sources crédibles et mettre en avant les auteurs.
+
+**Snippets et SGE :** Les featured snippets restent un objectif majeur. Rédiger des réponses concises, utiliser des listes structurées et maintenir une autorité thématique forte.
+
+---
+
+### Sites à haute performance : les bonnes pratiques
+
+**Auteur:** Bauhem
+**Catégorie:** Blog
+**Description:** Comment concevoir des sites ultra-rapides, optimisés SEO et faciles à maintenir, sans compromis sur le design.
+
+La vitesse d'un site web n'est plus un luxe — c'est une nécessité.
+
+**Core Web Vitals :** LCP sous 2,5s, FID sous 100ms, CLS sous 0,1. Nos sites sont conçus pour atteindre ces seuils dès le départ.
+
+**Optimisation des images :** Les images représentent souvent plus de 60% du poids d'une page. Formats WebP/AVIF, lazy loading natif, srcset responsifs.
+
+**SEO technique :** Optimisation du CSS/JS critique, SSR avec Next.js, mise en cache CDN, minification des assets.
+
+---
+
+### Architecture CMS pour sites éditoriaux : Guide complet
+
+**Auteur:** Bauhem
+**Catégorie:** Blog
+**Description:** Les bonnes pratiques pour concevoir une architecture CMS scalable : collections, relations, contenus dynamiques et performance.
+
+Dans l'écosystème numérique actuel, un site éditorial performant repose sur une architecture CMS solide.
+
+Un CMS headless sépare le back-end de gestion de contenu du front-end. Cette approche permet de publier du contenu structuré une seule fois et de le diffuser sur plusieurs canaux : site web, application mobile, assistant vocal.
+
+La clé d'une architecture réussie est la modélisation. Chaque type de contenu devient une collection. Les relations entre collections permettent de créer des pages dynamiques, des contenus reliés et des architectures flexibles.
+
+**Comparaison des plateformes :** Webflow excelle pour le design visuel. DatoCMS est idéal pour les projets headless complexes. Ycode combine simplicité no-code et puissance CMS.
+
+---
+
+### L'IA générative transforme le conseil en stratégie digitale
+
+**Auteur:** Bauhem
+**Catégorie:** Insights
+**Description:** Comment l'IA générative redéfinit les méthodologies de conseil.
+
+L'intelligence artificielle générative bouleverse le conseil en stratégie digitale. De la création de contenu à l'analyse de données, en passant par le branding et le SEO, l'IA ouvre des possibilités inédites.
+
+**Création de contenu assistée par IA :** Les modèles comme GPT-4 permettent de générer des articles, descriptions et publications sociales en une fraction du temps. Chez Bauhem, nous utilisons l'IA comme assistant de rédaction, avec supervision humaine.
+
+**Branding augmenté :** Midjourney et DALL-E permettent de générer des concepts visuels, explorer des directions de marque et itérer rapidement sur les identités visuelles.
+
+**Analyse prédictive :** L'IA analyse des volumes massifs de données pour identifier des tendances, prédire le comportement utilisateur et optimiser les campagnes en temps réel.
+
+---
+
+### Automatisation des processus métier : 5 exemples concrets
+
+**Auteur:** Bauhem
+**Catégorie:** Blog
+**Description:** Découvrez comment l'automatisation IA transforme les workflows en entreprise : génération de contenu, modération, traduction, reporting et onboarding client.
+
+---
+
+## Réalisations (Case Studies)
+
+### OSE Média — Marque culturelle, plateforme média
+
+**Client:** OSE Média
+**Focus:** Site Webflow
+
+Refonte de site et plateforme média pour une marque culturelle.
+
+---
+
+### Groupe Industriel AMI — Site Webflow
+
+**Client:** AMI
+**Focus:** Site Webflow
+
+Site web pour groupe industriel.
+
+---
+
+### GFEV — Site web et identité de marque pour groupe de recherche médicale
+
+**Client:** GFEV — Groupe Français d'Étude des Vascularites
+**Focus:** Site Webflow
+
+Site web et identité de marque pour groupe de recherche médicale.
+
+---
+
+### Campagne Québec — Plateforme web marketing
+
+**Client:** Campagne Québec
+**Focus:** Site Webflow
+
+Plateforme web marketing.
+
+---
+
+### Équinox Aventures — Refonte site vitrine SEO
+
+**Client:** Équinox Aventures
+**Focus:** SEO, AEO & découvrabilité
+
+Refonte site vitrine avec optimisation SEO.
+
+---
+
+### Kandl Artistique — Site portfolio créatif
+
+**Client:** Kandl Artistique
+**Focus:** Design & Branding
+
+Site portfolio créatif.
+
+---
+
+### Distillerie FOVE — Site e-commerce distillerie
+
+**Client:** Distillerie FOVE
+**Focus:** Site Webflow
+
+Site e-commerce pour distillerie.
+
+---
+
+### Milmonde — Refonte Webflow CMS multilingue
+
+**Client:** Milmonde
+**Focus:** Site Webflow
+
+Refonte Webflow CMS multilingue.
+
+---
+
+## Témoignages
+
+### Charles-Antoine Éthier — OSE Média
+**Titre:** Direction artistique
+« Je suis très satisfait du design. »
+
+### Sylvain Poliquin — AMI
+**Titre:** Direction
+« Le site est clair, performant et va nous simplifier la gestion. »
+
+### Laurence B. — GFEV
+**Titre:** Direction
+« On a gagné en crédibilité et en efficacité. »
+
+### Mathieu G. — Campagne Québec
+**Titre:** Direction marketing
+« Bauhem a su comprendre nos besoins et livrer une plateforme qui performe. »
+
+### Félix A. — Équinox Aventures
+**Titre:** Propriétaire
+« Un site qui nous ressemble et qui nous amène des clients. »
+
+### Alexandre R. — Distillerie FOVE
+« Une refonte qui a changé notre image. »
+
+---
+
+## Équipe
+
+### Guillaume Gosselin
+**Titre:** Fondateur & Développeur
+Description: Fondateur de Bauhem, spécialiste en systèmes web composables, découvrabilité IA et architecture CMS. Expert Ycode, Webflow et DatoCMS. Basé à Alma, Québec.
+
+---
+
+## Avantages stratégiques
+
+**Pour la solution Branding, structure et contenu :**
+- **Direction visuelle cohérente** — Aligner stylescapes, typographie, couleurs, images et ton pour soutenir la bonne perception de la marque.
+- **Positionnement clarifié** — Définir les attributs, messages et angles de différenciation pour rendre l'offre plus claire.
+- **Offre plus lisible** — Clarifier les pages et les messages pour aider les prospects à comprendre rapidement la valeur.
+- **Base d'évolution continue** — Réunir design, contenu, formulaires, données et workflows dans une base cohérente.
+
+**Pour la solution Sites structurés pour la découvrabilité :**
+- **Mieux compris par Google et l'IA** — Structurer les contenus pour être plus faciles à explorer, indexer, interpréter et citer.
+- **Intentions plus qualifiées** — Créer des pages qui répondent à de vrais besoins de recherche.
+- **Contenus plus faciles à vendre** — Structurer les pages, preuves et messages pour rendre la valeur plus évidente.
+- **Base exploitable par l'IA** — Structurer les données et processus pour permettre des assistants et automatisations.
+
+**Pour la solution Automatisation des processus et données :**
+- **Information centralisée** — Regrouper demandes, documents, statuts et informations importantes dans une interface claire.
+- **Moins de travail manuel** — Réduire les doubles saisies, suivis par courriel et manipulations répétitives.
+- **Données plus fiables** — Centraliser les demandes, statuts et informations pour réduire les erreurs.
+- **Base connectée à l'IA** — Préparer le système pour des workflows IA, MCP et assistants.
+
+**Pour la solution Migration vers Ycode :**
+- **Moins de dette numérique** — Réduire les dépendances aux extensions, outils externes et processus bricolés.
+- **Migration sans reproduire l'ancien** — Profiter de la migration pour simplifier les modèles et dépendances inutiles.
+- **Expérience plus professionnelle** — Offrir un espace structuré qui renforce la confiance.
+- **Prêt pour l'IA et l'automatisation** — Structurer contenus, données et workflows sans tout reconstruire.
+
+**Pour la solution Modernisation de sites vieillissants :**
+- **Base modernisée** — Remplacer un site ou CMS vieillissant par une infrastructure plus claire et plus fiable.
+- **Contenant unifié** — Créer un portail qui peut évoluer vers automatisation, IA et nouveaux services numériques.
+
+**Pour la solution Portails clients et outils internes :**
+- **Information centralisée** — Regrouper demandes, documents, statuts et informations importantes.
+- **Expérience plus professionnelle** — Offrir aux clients, employés ou partenaires un espace structuré.
+
+---
+
+## Contact
+
+Bauhem — Agence digitale
+Alma, Québec
+Contact via le formulaire sur le site.

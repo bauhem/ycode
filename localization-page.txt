@@ -1,0 +1,403 @@
+- generic [active] [ref=e1]:
+  - button "Open Next.js Dev Tools" [ref=e12] [cursor=pointer]:
+    - img [ref=e13]
+  - alert [ref=e16]
+  - generic [ref=e17]:
+    - banner [ref=e18]:
+      - generic [ref=e19]:
+        - button [ref=e20] [cursor=pointer]:
+          - generic [ref=e21]:
+            - img
+        - generic [ref=e22]:
+          - button "Design" [ref=e23] [cursor=pointer]:
+            - img
+            - text: Design
+          - button "CMS" [ref=e24] [cursor=pointer]:
+            - img
+            - text: CMS
+          - button "Forms" [ref=e25] [cursor=pointer]:
+            - img
+            - text: Forms
+      - generic [ref=e26]:
+        - button "EN" [ref=e27] [cursor=pointer]:
+          - img
+          - text: EN
+        - link "http://localhost:3002" [ref=e29] [cursor=pointer]:
+          - /url: http://localhost:3002/en/
+      - generic [ref=e30]:
+        - button "Invite" [ref=e31] [cursor=pointer]
+        - generic [ref=e33]: Ready
+        - button [disabled] [ref=e34]:
+          - img
+        - button "Publish" [ref=e35] [cursor=pointer]
+    - generic [ref=e37]:
+      - generic [ref=e38]:
+        - banner [ref=e39]:
+          - generic [ref=e40]: Localization
+          - button [ref=e41] [cursor=pointer]:
+            - img
+        - generic [ref=e43]:
+          - generic [ref=e45] [cursor=pointer]:
+            - generic [ref=e46]: fr
+            - generic [ref=e48]: Français
+            - generic [ref=e49]: Default
+          - generic [ref=e51] [cursor=pointer]:
+            - generic [ref=e52]: en
+            - generic [ref=e54]: English
+      - generic [ref=e56]:
+        - generic [ref=e57]:
+          - combobox [ref=e59] [cursor=pointer]:
+            - generic:
+              - generic:
+                - img
+                - text: CMS
+            - img
+          - combobox [ref=e61] [cursor=pointer]:
+            - generic:
+              - generic:
+                - img
+                - text: To be translated
+            - img
+          - group [ref=e63]:
+            - textbox "Search..." [ref=e64]
+            - group [ref=e65]:
+              - img [ref=e66]
+          - button "Auto-translate" [disabled] [ref=e69]
+        - generic [ref=e70]:
+          - banner [ref=e72] [cursor=pointer]:
+            - generic [ref=e73]:
+              - img [ref=e74]
+              - img [ref=e77]
+              - generic [ref=e79]:
+                - text: Blog Categories
+                - generic [ref=e80]: ›
+                - text: Blog
+              - generic [ref=e81]:
+                - generic [ref=e82]: Français
+                - img [ref=e83]
+                - generic [ref=e85]: English
+          - banner [ref=e87] [cursor=pointer]:
+            - generic [ref=e88]:
+              - img [ref=e89]
+              - img [ref=e92]
+              - generic [ref=e94]:
+                - text: Blog Categories
+                - generic [ref=e95]: ›
+                - text: Insights
+              - generic [ref=e96]:
+                - generic [ref=e97]: Français
+                - img [ref=e98]
+                - generic [ref=e100]: English
+          - banner [ref=e102] [cursor=pointer]:
+            - generic [ref=e103]:
+              - img [ref=e104]
+              - img [ref=e107]
+              - generic [ref=e109]:
+                - text: Blog Posts
+                - generic [ref=e110]: ›
+                - text: "GEO vs AEO : comment vérifier si votre site est vraiment visible pour l'IA (et corriger le problème)"
+              - generic [ref=e111]:
+                - generic [ref=e112]: Français
+                - img [ref=e113]
+                - generic [ref=e115]: English
+          - banner [ref=e117] [cursor=pointer]:
+            - generic [ref=e118]:
+              - img [ref=e119]
+              - img [ref=e122]
+              - generic [ref=e124]:
+                - text: Blog Posts
+                - generic [ref=e125]: ›
+                - text: "Ycode vs Webflow : 7 raisons pour lesquelles Bauhem choisit un CMS open source prêt pour l’IA"
+              - generic [ref=e126]:
+                - generic [ref=e127]: Français
+                - img [ref=e128]
+                - generic [ref=e130]: English
+          - banner [ref=e132] [cursor=pointer]:
+            - generic [ref=e133]:
+              - img [ref=e134]
+              - img [ref=e137]
+              - generic [ref=e139]:
+                - text: Blog Posts
+                - generic [ref=e140]: ›
+                - text: "Architecture CMS pour sites éditoriaux : Guide complet"
+              - generic [ref=e141]:
+                - generic [ref=e142]: Français
+                - img [ref=e143]
+                - generic [ref=e145]: English
+          - banner [ref=e147] [cursor=pointer]:
+            - generic [ref=e148]:
+              - img [ref=e149]
+              - img [ref=e152]
+              - generic [ref=e154]:
+                - text: Blog Posts
+                - generic [ref=e155]: ›
+                - text: "Sites à haute performance : les bonnes pratiques"
+              - generic [ref=e156]:
+                - generic [ref=e157]: Français
+                - img [ref=e158]
+                - generic [ref=e160]: English
+          - banner [ref=e162] [cursor=pointer]:
+            - generic [ref=e163]:
+              - img [ref=e164]
+              - img [ref=e167]
+              - generic [ref=e169]:
+                - text: Blog Posts
+                - generic [ref=e170]: ›
+                - text: "Automatisation des processus métier : 5 exemples concrets"
+              - generic [ref=e171]:
+                - generic [ref=e172]: Français
+                - img [ref=e173]
+                - generic [ref=e175]: English
+          - banner [ref=e177] [cursor=pointer]:
+            - generic [ref=e178]:
+              - img [ref=e179]
+              - img [ref=e182]
+              - generic [ref=e184]:
+                - text: Blog Posts
+                - generic [ref=e185]: ›
+                - text: "SEO 2026 : recherche vocale, snippets et EEAT"
+              - generic [ref=e186]:
+                - generic [ref=e187]: Français
+                - img [ref=e188]
+                - generic [ref=e190]: English
+          - banner [ref=e192] [cursor=pointer]:
+            - generic [ref=e193]:
+              - img [ref=e194]
+              - img [ref=e197]
+              - generic [ref=e199]:
+                - text: Blog Posts
+                - generic [ref=e200]: ›
+                - text: L'IA générative transforme le conseil en stratégie digitale
+              - generic [ref=e201]:
+                - generic [ref=e202]: Français
+                - img [ref=e203]
+                - generic [ref=e205]: English
+          - banner [ref=e207] [cursor=pointer]:
+            - generic [ref=e208]:
+              - img [ref=e209]
+              - img [ref=e212]
+              - generic [ref=e214]:
+                - text: Case Studies
+                - generic [ref=e215]: ›
+                - text: GFEV | Site web et identité de marque pour groupe de recherche médicale
+              - generic [ref=e216]:
+                - generic [ref=e217]: Français
+                - img [ref=e218]
+                - generic [ref=e220]: English
+          - banner [ref=e222] [cursor=pointer]:
+            - generic [ref=e223]:
+              - img [ref=e224]
+              - img [ref=e227]
+              - generic [ref=e229]:
+                - text: Case Studies
+                - generic [ref=e230]: ›
+                - text: Plateforme web et marketing numérique
+              - generic [ref=e231]:
+                - generic [ref=e232]: Français
+                - img [ref=e233]
+                - generic [ref=e235]: English
+          - banner [ref=e237] [cursor=pointer]:
+            - generic [ref=e238]:
+              - img [ref=e239]
+              - img [ref=e242]
+              - generic [ref=e244]:
+                - text: Case Studies
+                - generic [ref=e245]: ›
+                - text: Refonte de site vitrine et SEO
+              - generic [ref=e246]:
+                - generic [ref=e247]: Français
+                - img [ref=e248]
+                - generic [ref=e250]: English
+          - banner [ref=e252] [cursor=pointer]:
+            - generic [ref=e253]:
+              - img [ref=e254]
+              - img [ref=e257]
+              - generic [ref=e259]:
+                - text: Case Studies
+                - generic [ref=e260]: ›
+                - text: Site portfolio et vitrine créative
+              - generic [ref=e261]:
+                - generic [ref=e262]: Français
+                - img [ref=e263]
+                - generic [ref=e265]: English
+          - banner [ref=e267] [cursor=pointer]:
+            - generic [ref=e268]:
+              - img [ref=e269]
+              - img [ref=e272]
+              - generic [ref=e274]:
+                - text: Case Studies
+                - generic [ref=e275]: ›
+                - text: OSE Média | marque culturelle, plateforme média et découvrabilité événementielle
+              - generic [ref=e276]:
+                - generic [ref=e277]: Français
+                - img [ref=e278]
+                - generic [ref=e280]: English
+          - banner [ref=e282] [cursor=pointer]:
+            - generic [ref=e283]:
+              - img [ref=e284]
+              - img [ref=e287]
+              - generic [ref=e289]:
+                - text: Case Studies
+                - generic [ref=e290]: ›
+                - text: Site e-commerce pour distillerie artisanale
+              - generic [ref=e291]:
+                - generic [ref=e292]: Français
+                - img [ref=e293]
+                - generic [ref=e295]: English
+          - banner [ref=e297] [cursor=pointer]:
+            - generic [ref=e298]:
+              - img [ref=e299]
+              - img [ref=e302]
+              - generic [ref=e304]:
+                - text: Case Studies
+                - generic [ref=e305]: ›
+                - text: Refonte Webflow et CMS multilingue
+              - generic [ref=e306]:
+                - generic [ref=e307]: Français
+                - img [ref=e308]
+                - generic [ref=e310]: English
+          - banner [ref=e312] [cursor=pointer]:
+            - generic [ref=e313]:
+              - img [ref=e314]
+              - img [ref=e317]
+              - generic [ref=e319]:
+                - text: Pages
+                - generic [ref=e320]: ›
+                - text: Landing Page Test
+              - generic [ref=e321]:
+                - generic [ref=e322]: Français
+                - img [ref=e323]
+                - generic [ref=e325]: English
+          - banner [ref=e327] [cursor=pointer]:
+            - generic [ref=e328]:
+              - img [ref=e329]
+              - img [ref=e332]
+              - generic [ref=e334]:
+                - text: Services
+                - generic [ref=e335]: ›
+                - text: SEO, AEO & découvrabilité
+              - generic [ref=e336]:
+                - generic [ref=e337]: Français
+                - img [ref=e338]
+                - generic [ref=e340]: English
+          - banner [ref=e342] [cursor=pointer]:
+            - generic [ref=e343]:
+              - img [ref=e344]
+              - img [ref=e347]
+              - generic [ref=e349]:
+                - text: Services
+                - generic [ref=e350]: ›
+                - text: Systèmes web & CMS composables
+              - generic [ref=e351]:
+                - generic [ref=e352]: Français
+                - img [ref=e353]
+                - generic [ref=e355]: English
+          - banner [ref=e357] [cursor=pointer]:
+            - generic [ref=e358]:
+              - img [ref=e359]
+              - img [ref=e362]
+              - generic [ref=e364]:
+                - text: Services
+                - generic [ref=e365]: ›
+                - text: Design & Branding
+              - generic [ref=e366]:
+                - generic [ref=e367]: Français
+                - img [ref=e368]
+                - generic [ref=e370]: English
+          - banner [ref=e372] [cursor=pointer]:
+            - generic [ref=e373]:
+              - img [ref=e374]
+              - img [ref=e377]
+              - generic [ref=e379]:
+                - text: Services
+                - generic [ref=e380]: ›
+                - text: Agentic AI - Implementation en entreprise
+              - generic [ref=e381]:
+                - generic [ref=e382]: Français
+                - img [ref=e383]
+                - generic [ref=e385]: English
+          - banner [ref=e387] [cursor=pointer]:
+            - generic [ref=e388]:
+              - img [ref=e389]
+              - img [ref=e392]
+              - generic [ref=e394]:
+                - text: Services
+                - generic [ref=e395]: ›
+                - text: Optimisation des processus et transformation numérique
+              - generic [ref=e396]:
+                - generic [ref=e397]: Français
+                - img [ref=e398]
+                - generic [ref=e400]: English
+          - banner [ref=e402] [cursor=pointer]:
+            - generic [ref=e403]:
+              - img [ref=e404]
+              - img [ref=e407]
+              - generic [ref=e409]:
+                - text: Services
+                - generic [ref=e410]: ›
+                - text: Développement d’applications assisté par IA
+              - generic [ref=e411]:
+                - generic [ref=e412]: Français
+                - img [ref=e413]
+                - generic [ref=e415]: English
+          - banner [ref=e417] [cursor=pointer]:
+            - generic [ref=e418]:
+              - img [ref=e419]
+              - img [ref=e422]
+              - generic [ref=e424]:
+                - text: Team Members
+                - generic [ref=e425]: ›
+                - text: Guillaume Gosselin
+              - generic [ref=e426]:
+                - generic [ref=e427]: Français
+                - img [ref=e428]
+                - generic [ref=e430]: English
+          - banner [ref=e432] [cursor=pointer]:
+            - generic [ref=e433]:
+              - img [ref=e434]
+              - img [ref=e437]
+              - generic [ref=e439]:
+                - text: Testimonials
+                - generic [ref=e440]: ›
+                - text: Martin Levinton
+              - generic [ref=e441]:
+                - generic [ref=e442]: Français
+                - img [ref=e443]
+                - generic [ref=e445]: English
+          - banner [ref=e447] [cursor=pointer]:
+            - generic [ref=e448]:
+              - img [ref=e449]
+              - img [ref=e452]
+              - generic [ref=e454]:
+                - text: Testimonials
+                - generic [ref=e455]: ›
+                - text: Hiroshi Tanaka
+              - generic [ref=e456]:
+                - generic [ref=e457]: Français
+                - img [ref=e458]
+                - generic [ref=e460]: English
+          - banner [ref=e462] [cursor=pointer]:
+            - generic [ref=e463]:
+              - img [ref=e464]
+              - img [ref=e467]
+              - generic [ref=e469]:
+                - text: Testimonials
+                - generic [ref=e470]: ›
+                - text: David Chen
+              - generic [ref=e471]:
+                - generic [ref=e472]: Français
+                - img [ref=e473]
+                - generic [ref=e475]: English
+          - banner [ref=e477] [cursor=pointer]:
+            - generic [ref=e478]:
+              - img [ref=e479]
+              - img [ref=e482]
+              - generic [ref=e484]:
+                - text: Testimonials
+                - generic [ref=e485]: ›
+                - text: James Richardson
+              - generic [ref=e486]:
+                - generic [ref=e487]: Français
+                - img [ref=e488]
+                - generic [ref=e490]: English
+  - region "Notifications alt+T"
