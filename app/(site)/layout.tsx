@@ -1,8 +1,28 @@
 import '@/app/site.css';
 import type { Metadata } from 'next';
+import { headers } from 'next/headers';
 import RootLayoutShell, { defaultMetadata } from '@/components/RootLayoutShell';
 import { fetchGlobalPageSettings } from '@/lib/generate-page-metadata';
 import { renderRootLayoutHeadCode } from '@/lib/parse-head-html';
+
+/**
+ * Detect the page locale from the request pathname.
+ * Bauhem default: "fr". Paths under /en/ → "en".
+ * Falls back to "en" for non-site routes (builder, preview, etc.).
+ */
+function detectLocaleFromPathname(pathname: string): string {
+  // Normalize: strip trailing slash, get segments
+  const normalized = pathname.replace(/\/$/, '');
+  const segments = normalized.split('/').filter(Boolean);
+
+  if (segments[0] === 'en') return 'en';
+  // If the first segment is a known non-locale path (ycode, api, etc.), keep "en"
+  // For all other paths (including "/"), default to French
+  if (segments.length === 0 || !['ycode', 'api', '_next'].includes(segments[0])) {
+    return 'fr';
+  }
+  return 'en';
+}
 
 export async function generateMetadata(): Promise<Metadata> {
   if (process.env.SKIP_SETUP === 'true') {
@@ -36,8 +56,14 @@ export default async function SiteLayout({
 }>) {
   let headElements: React.ReactNode[] = [];
 
-  // Cloud mode uses ISR with explicit tenantId — calling headers() here
-  // would force all pages dynamic. Cloud injects global head code from PageRenderer instead.
+  // Resolve the page language from the request pathname.
+  // Uses x-pathname header (set by Next.js/Netlify) then falls back to x-next-pathname.
+  const headersList = await headers();
+  const pathname = headersList.get('x-pathname') || headersList.get('x-next-pathname') || '/';
+  const lang = detectLocaleFromPathname(pathname);
+
+  // Cloud mode uses ISR with explicit tenantId. Cloud injects global head
+  // code from PageRenderer instead of the layout.
   if (process.env.SKIP_SETUP !== 'true') {
     try {
       const globalSettings = await fetchGlobalPageSettings();
@@ -50,7 +76,7 @@ export default async function SiteLayout({
   }
 
   return (
-    <RootLayoutShell headElements={headElements}>
+    <RootLayoutShell headElements={headElements} lang={lang}>
       {children}
     </RootLayoutShell>
   );

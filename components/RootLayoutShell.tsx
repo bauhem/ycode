@@ -18,15 +18,18 @@ interface RootLayoutShellProps {
    * public published sites should use to avoid shipping the builder's UI font.
    */
   bodyClassName?: string;
+  /** ISO 639-1 language code for the <html lang> attribute. Defaults to "en". */
+  lang?: string;
 }
 
 export default function RootLayoutShell({
   children,
   headElements,
   bodyClassName = 'font-sans antialiased',
+  lang = 'en',
 }: RootLayoutShellProps) {
   return (
-    <html lang="en" suppressHydrationWarning>
+    <html lang={lang} suppressHydrationWarning>
       <head>
         {headElements}
       </head>
