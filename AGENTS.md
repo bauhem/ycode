@@ -560,6 +560,45 @@ Reserved for operations still missing from the active MCP surface or for repairi
 
 Use the database function `ycode_update_layer_recursive` for simple JSONB traversal when appropriate, or targeted `jsonb_set` paths for exact nodes. Always restrict draft-only edits with `is_published = false`, set `content_hash = NULL`, and verify both `components.layers` and the targeted variant when direct SQL is unavoidable.
 
+### ❌ Never use SQL for rich_text collection_item_values
+
+Setting rich_text (Tiptap JSON) content via SQL `INSERT INTO collection_item_values` will appear empty in the CMS builder UI because `\uXXXX` Unicode escape sequences are stored as literal text instead of actual characters. The frontend may render correctly (JSON.parse decodes the escapes), but the builder's rich text editor cannot display escaped Unicode.
+
+**Always use MCP `ycode_update_collection_item` to set rich_text values.** Pass the Tiptap JSON as a string value with actual French/UTF-8 characters, not escaped:
+
+```json
+// ❌ SQL — field empty in builder
+{"text": "vous \\u00eates diff\\u00e9rent"}
+
+// ✅ MCP ycode_update_collection_item — works in builder
+{"text": "vous êtes différent"}
+```
+
+### Published copies required for new collections/fields
+
+After creating a new collection and its fields via MCP, insert published copies so the builder's template mapping recognizes them:
+
+```sql
+-- Collection
+INSERT INTO collections SELECT *, true AS is_published, gen_random_uuid() AS uuid
+FROM collections WHERE id = '<id>' AND is_published = false;
+
+-- Fields
+INSERT INTO collection_fields SELECT *, true AS is_published
+FROM collection_fields WHERE collection_id = '<id>' AND is_published = false;
+
+-- Items
+INSERT INTO collection_items SELECT *, true AS is_published
+FROM collection_items WHERE collection_id = '<id>' AND is_published = false;
+
+-- Values  
+INSERT INTO collection_item_values (id, item_id, field_id, value, is_published, ...)
+SELECT gen_random_uuid(), item_id, field_id, value, true, ...
+FROM collection_item_values WHERE ... AND is_published = false;
+```
+
+Without published copies, the collection and its fields won't appear in template binding dropdowns.
+
 ### ⚠️ Known/Legacy YCode Bugs & Workarounds (CRITICAL — verify before relying on them)
 
 These notes were observed during prior imports and may be fixed or partially mitigated by YCode 1.13.0. Before applying a workaround, first test the current MCP/editor behavior. Keep workarounds only when the bug is still reproducible in the active environment.

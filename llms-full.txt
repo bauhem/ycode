@@ -255,9 +255,13 @@ Mais depuis quelques mois, j'ai migré ma pratique d'agence vers Ycode. Pas sur 
 
 Quand une collection est liée à une autre dans Ycode, la relation existe dans les deux sens. Exemple concret : une collection « Services » liée à une collection « Études de cas ». Dans Webflow, afficher tous les cas clients liés à un service donné dans l'autre sens, c'est du bricolage. Ycode gère ça nativement. Au-delà des relations inverses, on peut filtrer dynamiquement des listes, afficher ou masquer du contenu selon des conditions, et alimenter des sélecteurs directement à partir d'une collection CMS.
 
-**2. Tout devient un lien, sans wrapper inutile**
+**2. Copier-Coller directement d'un projet Webflow / Figma**
 
-Dans Ycode, presque n'importe quel élément peut devenir un lien : une image, un div, un bloc de texte. Pas besoin d'envelopper dans un Link Block. Sur un projet de 30 ou 40 pages, chaque wrapper en moins c'est du temps sauvé.
+Ycode permet de coller du HTML et des classes Tailwind directement depuis un export Webflow ou un projet Figma. Pas besoin de reconstruire chaque section à la main ni de réinventer la structure.
+
+Pour la migration, c'est un gain de temps considérable : on copie une section depuis le site Webflow existant, on la colle dans Ycode, et la structure HTML ainsi que les classes sont préservées. Il reste à ajuster le système de design et les liaisons CMS, mais la maquette est déjà en place.
+
+Pour l'utilisation de thèmes, c'est tout aussi pratique. On peut acheter un thème Webflow ou exporter des sections depuis n'importe quel projet Figma, et les intégrer directement dans Ycode sans tout re-construire manuellement. Le thème sert de point de départ, pas de carcan.
 
 **3. Du composable design directement dans le rich text**
 

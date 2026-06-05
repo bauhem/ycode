@@ -321,3 +321,58 @@ If the builder looks translated but `/en` does not, the usual causes are:
 - translations were created under `source_type: "page"` while the text lives inside a component and must use `source_type: "component"`
 - the `source_id` is not the master `componentId` used by the page instance
 - component override text was translated as a component row instead of as a page-scoped override row surfaced by `ycode_list_translatable_content`
+
+## FAQ collection pattern (CMS-driven Q&A)
+
+Use for question-driven content on service pages, aimed at featured snippets and AI answers.
+
+### Setup
+
+1. Create a FAQ collection with fields: `Question` (text, key: `question`), `Answer` (rich_text, key: `answer`), `Order` (number, key: `order`). Set sorting to manual order.
+2. Add a `multi_reference` field (key: `faq`) on the target collection (e.g. Services), pointing to the FAQ collection.
+3. In the dynamic template, add a Collection List bound to the FAQ collection, filtered by the current item's FAQ multi-reference field. Map Question to a text/heading element, Answer to a richText element.
+
+### Critical: always use MCP for rich_text values, never SQL
+
+Rich text content (Tiptap JSON `{"type":"doc","content":[...]}`) must be set via `ycode_update_collection_item`, not via SQL `INSERT INTO collection_item_values`.
+
+**Why:** SQL inserts with `\uXXXX` Unicode escapes (e.g. `\u00e9` for é) store the literal escape sequence, not the actual character. The CMS builder's rich text editor does not display content with escaped sequences — the field appears empty in the editor UI even though the frontend renders it correctly. The MCP tool `ycode_update_collection_item` stores actual UTF-8 characters, which the builder can display.
+
+```json
+// ✅ MCP — works in builder
+{ "text": "vous êtes différent" }
+
+// ❌ SQL — field appears empty in builder
+{ "text": "vous \\u00eates diff\\u00e9rent" }
+```
+
+### Published copies required
+
+After creating a new collection and fields via MCP, you must manually insert published copies for the builder UI to recognize the collection/fields in template mapping:
+
+- `INSERT INTO collections ... WHERE is_published = false` (with a new `gen_random_uuid()`)
+- `INSERT INTO collection_fields ... WHERE is_published = false`
+- `INSERT INTO collection_items ... WHERE is_published = false`
+- `INSERT INTO collection_item_values ... WHERE is_published = false`
+
+Without these published copies:
+- The collection won't appear in template Collection List field pickers
+- Multi-reference fields won't be selectable for mapping
+- New fields won't appear in the field selection dropdown
+
+### Association
+
+Link FAQ items to a service by inserting the multi-reference value:
+
+```sql
+INSERT INTO collection_item_values (id, item_id, field_id, value, ...)
+VALUES (
+  gen_random_uuid(),
+  '<service-item-id>',
+  '<faq-multi-ref-field-id>',
+  '["<faq-item-id-1>","<faq-item-id-2>",...]',
+  false, ...
+);
+```
+
+Then duplicate for `is_published = true`.
