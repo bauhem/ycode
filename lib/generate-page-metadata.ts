@@ -19,7 +19,7 @@ import { getTranslationsByLocale } from '@/lib/repositories/translationRepositor
 import { buildSvgDataUrl, getAssetProxyUrl } from '@/lib/asset-utils';
 import { generateColorVariablesCss } from '@/lib/repositories/colorVariableRepository';
 import { buildPageHreflangAlternates } from '@/lib/hreflang-utils';
-import { getTranslatableKey } from '@/lib/locale-runtime';
+import { getTranslatableKey, getTranslationValue } from '@/lib/locale-runtime';
 import { getSiteBaseUrl } from '@/lib/url-utils';
 
 /** Languages map shape Next.js expects under `metadata.alternates.languages`. */
@@ -66,6 +66,8 @@ export interface GenerateMetadataOptions {
   tenantId?: string;
   /** Primary domain URL (e.g. https://example.com) for metadataBase */
   primaryDomainUrl?: string;
+  /** Translations map for multilingual SEO resolution */
+  translations?: Record<string, Translation>;
 }
 
 /**
@@ -282,6 +284,29 @@ export async function generatePageMetadata(
   let description = seo?.description || fallbackDescription || `${page.name} - Built with Ycode`;
   if (collectionItem && seo?.description) {
     description = resolveInlineVariables(seo.description, collectionItem) || fallbackDescription || `${page.name} - Built with Ycode`;
+  }
+
+  // Resolve multilingual SEO translations (overrides default SEO values)
+  const { translations } = options;
+  if (translations && page.id) {
+    const seoTitleKey = `page:${page.id}:seo:title`;
+    const seoDescKey = `page:${page.id}:seo:description`;
+
+    const translationEntry = translations[seoTitleKey];
+    if (translationEntry) {
+      const translatedTitle = getTranslationValue(translationEntry, { includeIncomplete: isPreview });
+      if (translatedTitle) {
+        title = translatedTitle;
+      }
+    }
+
+    const translationDescEntry = translations[seoDescKey];
+    if (translationDescEntry) {
+      const translatedDescription = getTranslationValue(translationDescEntry, { includeIncomplete: isPreview });
+      if (translatedDescription) {
+        description = translatedDescription;
+      }
+    }
   }
 
   // Base metadata
