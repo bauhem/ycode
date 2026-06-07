@@ -175,9 +175,17 @@ export async function proxy(request: NextRequest) {
   }
 
   // Create response
-  const response = NextResponse.next();
+  const response = NextResponse.next({
+    request: {
+      headers: (() => {
+        const headers = new Headers(request.headers);
+        headers.set('x-pathname', pathname);
+        return headers;
+      })(),
+    },
+  });
 
-  // Add pathname header for layout to determine dark mode
+  // Also set as response header for Netlify edge visibility
   response.headers.set('x-pathname', pathname);
 
   // Cache-Control for public pages is configured centrally via next.config.ts headers().

@@ -57,16 +57,10 @@ export default async function SiteLayout({
   let headElements: React.ReactNode[] = [];
 
   // Resolve the page language from the request pathname.
-  // x-locale-pathname is set by middleware.ts from request.nextUrl.pathname
-  // (the most reliable source in both local dev and Netlify serverless).
-  // Falls back to x-pathname (Netlify edge header), then next-url (RSC).
+  // x-pathname is injected by proxy.ts as a request header from
+  // request.nextUrl.pathname (available in both local dev and Netlify).
   const headersList = await headers();
-  const pathname =
-    headersList.get('x-locale-pathname') ||
-    headersList.get('x-pathname') ||
-    headersList.get('x-next-pathname') ||
-    '/';
-
+  const pathname = headersList.get('x-pathname') || headersList.get('x-next-pathname') || '/';
   const lang = detectLocaleFromPathname(pathname);
 
   // Cloud mode uses ISR with explicit tenantId. Cloud injects global head
