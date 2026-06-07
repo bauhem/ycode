@@ -8,6 +8,7 @@ import { buildSlugPath } from '@/lib/page-utils';
 import { generatePageMetadata, fetchGlobalPageSettings } from '@/lib/generate-page-metadata';
 import { fetchPageByPath, fetchPageByPathForMetadata, fetchErrorPage, splitPageData, reassemblePageData, slimPageData } from '@/lib/page-fetcher';
 import PageRenderer from '@/components/PageRenderer';
+import JsonLd from '@/components/JsonLd';
 import PasswordForm from '@/components/PasswordForm';
 import { getSettingByKey } from '@/lib/repositories/settingsRepository';
 import { parseAuthCookie, getPasswordProtection, fetchFoldersForAuth } from '@/lib/page-auth';
@@ -377,25 +378,39 @@ export default async function Page({ params }: PageProps) {
     }
   }
 
+  const siteBaseUrl = getSiteBaseUrl({ globalCanonicalUrl: globalSettings.globalCanonicalUrl }) || 'https://admin.bauhem.com';
+  const seoTitle = page.settings?.seo?.title || page.name || slugPath;
+  const seoDesc = page.settings?.seo?.description || '';
+
   return (
-    <PageRenderer
-      page={page}
-      layers={pageLayers.layers || []}
-      components={components}
-      generatedCss={cssForPage}
-      colorVariablesCss={globalSettings.colorVariablesCss || undefined}
-      collectionItem={collectionItem}
-      collectionFields={collectionFields}
-      pageCollectionSortedItemIds={pageCollectionSortedItemIds}
-      pageCollectionSortedItemSlugs={pageCollectionSortedItemSlugs}
-      locale={locale}
-      availableLocales={availableLocales}
-      translations={translations}
-      gaMeasurementId={globalSettings.gaMeasurementId}
-      globalCustomCodeHead={globalSettings.globalCustomCodeHead}
-      globalCustomCodeBody={globalSettings.globalCustomCodeBody}
-      ycodeBadge={globalSettings.ycodeBadge}
-    />
+    <>
+      <JsonLd
+        page={page}
+        baseUrl={siteBaseUrl}
+        pagePath={currentPath}
+        title={seoTitle}
+        description={seoDesc}
+        collectionItem={collectionItem}
+      />
+      <PageRenderer
+        page={page}
+        layers={pageLayers.layers || []}
+        components={components}
+        generatedCss={cssForPage}
+        colorVariablesCss={globalSettings.colorVariablesCss || undefined}
+        collectionItem={collectionItem}
+        collectionFields={collectionFields}
+        pageCollectionSortedItemIds={pageCollectionSortedItemIds}
+        pageCollectionSortedItemSlugs={pageCollectionSortedItemSlugs}
+        locale={locale}
+        availableLocales={availableLocales}
+        translations={translations}
+        gaMeasurementId={globalSettings.gaMeasurementId}
+        globalCustomCodeHead={globalSettings.globalCustomCodeHead}
+        globalCustomCodeBody={globalSettings.globalCustomCodeBody}
+        ycodeBadge={globalSettings.ycodeBadge}
+      />
+    </>
   );
 }
 

@@ -7,6 +7,7 @@ import { fetchHomepage, fetchErrorPage, splitPageData, reassemblePageData, slimP
 import type { PageData } from '@/lib/page-fetcher';
 import PageRenderer from '@/components/PageRenderer';
 import PasswordForm from '@/components/PasswordForm';
+import JsonLd from '@/components/JsonLd';
 import { generatePageMetadata, fetchGlobalPageSettings } from '@/lib/generate-page-metadata';
 import { getSettingByKey } from '@/lib/repositories/settingsRepository';
 import { matchRedirect } from '@/lib/redirect-utils';
@@ -221,21 +222,32 @@ export default async function Home() {
   }
 
   // Render homepage
+  const siteBaseUrl = getSiteBaseUrl({ globalCanonicalUrl: globalSettings.globalCanonicalUrl }) || 'https://admin.bauhem.com';
+
   return (
-    <PageRenderer
-      page={data.page}
-      layers={data.pageLayers.layers || []}
-      components={data.components}
-      generatedCss={cssForPage}
-      colorVariablesCss={globalSettings.colorVariablesCss || undefined}
-      locale={data.locale}
-      availableLocales={data.availableLocales}
-      translations={data.translations}
-      gaMeasurementId={globalSettings.gaMeasurementId}
-      globalCustomCodeHead={globalSettings.globalCustomCodeHead}
-      globalCustomCodeBody={globalSettings.globalCustomCodeBody}
-      ycodeBadge={globalSettings.ycodeBadge}
-    />
+    <>
+      <JsonLd
+        page={data.page}
+        baseUrl={siteBaseUrl}
+        pagePath="/"
+        title={data.page.settings?.seo?.title || data.page.name || 'Bauhem — Sites, systèmes web et découvrabilité IA'}
+        description={data.page.settings?.seo?.description || 'Bauhem conçoit des sites, portails et systèmes web structurés pour aider les PME à être mieux comprises par leurs clients, Google et les outils d\'IA.'}
+      />
+      <PageRenderer
+        page={data.page}
+        layers={data.pageLayers.layers || []}
+        components={data.components}
+        generatedCss={cssForPage}
+        colorVariablesCss={globalSettings.colorVariablesCss || undefined}
+        locale={data.locale}
+        availableLocales={data.availableLocales}
+        translations={data.translations}
+        gaMeasurementId={globalSettings.gaMeasurementId}
+        globalCustomCodeHead={globalSettings.globalCustomCodeHead}
+        globalCustomCodeBody={globalSettings.globalCustomCodeBody}
+        ycodeBadge={globalSettings.ycodeBadge}
+      />
+    </>
   );
 }
 
