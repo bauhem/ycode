@@ -637,6 +637,16 @@ These notes were observed during prior imports and may be fixed or partially mit
    - **Root cause**: `isTextEditable()` in `layer-utils.ts:562` checks `layer.restrictions?.editText`. The fieldGroups system in `RightSidebar.tsx:1682` and `CenterCanvas.tsx:1321` builds CMS field lists from ancestor collection layers, but the sidebar's Insert Variable/Content section for text layers only renders the field picker when the selected layer passes `restrictions.editText`. Without this flag, the field groups exist but are never exposed to the user.
    - **Additional requirement**: Never include `variables.link`, `variables.image`, or other unrelated variable types on text layers. Keep `variables` to only `{ text: { type: "dynamic_rich_text", ... } }` on text layers.
 
+8. **`tagLayersWithComponentId` overwrites `_masterComponentId` on nested sub-components → translations not found**
+   - **Bug**: `tagLayersWithComponentId` in `lib/resolve-components.ts:564-572` unconditionally sets `_masterComponentId: componentId` on every layer it walks, even layers that are themselves inside nested components and already have a correct `_masterComponentId`. This overwrites the real component ID with the parent component's ID, causing the translation resolver to look up translations for the wrong component.
+   - **Symptom**: English pages show French text for all text inside nested sub-components (e.g., HomeHero's "Discover more" → "Découvrez en plus" on `/en`). The translations exist for the correct component ID, but `_masterComponentId` points to the parent component so the resolver never finds them.
+   - **Fix**: `layer._masterComponentId = layer._masterComponentId || componentId` at `lib/resolve-components.ts:567` — preserves the existing value if already set, only assigns the new componentId for layers that don't already have one.
+   - **Root cause**: The function walks the layer tree top-down. For root component layers, `_masterComponentId` is correctly unset and should be set to `componentId`. But when a sub-component layer is encountered (embedded via `componentId` property), its internal layers already have `_masterComponentId` set to the sub-component's ID during a previous or future pass. The unconditional assignment clobbers this value.
+   - **Detection**: Query translations for the sub-component ID vs. the parent component ID — translations exist for the former, not the latter.
+   - **Verification**: After fix, check that no visible French text remains on `/en` pages. Inspect responsive JSON data attributes for `data-layer-id` matches to confirm.
+   - **File**: `lib/resolve-components.ts:564-572`
+   - **Fix applied 2026-06-08**: Added `|| layer._masterComponentId` guard.
+
 ---
 
 ## 🔧 Environment

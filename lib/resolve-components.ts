@@ -564,7 +564,7 @@ export function applyComponentOverrides(
 function tagLayersWithComponentId(layers: Layer[], componentId: string): Layer[] {
   return layers.map(layer => ({
     ...layer,
-    _masterComponentId: componentId,
+    _masterComponentId: layer._masterComponentId || componentId,
     children: layer.children
       ? tagLayersWithComponentId(layer.children, componentId)
       : undefined,
