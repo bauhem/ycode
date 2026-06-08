@@ -1,0 +1,57 @@
+- generic [active] [ref=e1]:
+  - main [ref=e2]:
+    - generic [ref=e4]:
+      - link "Image" [ref=e6] [cursor=pointer]:
+        - /url: /en/
+        - img "Image" [ref=e7]
+      - generic [ref=e8]:
+        - generic [ref=e11]:
+          - link "Services" [ref=e12] [cursor=pointer]:
+            - /url: /en/services
+          - img [ref=e14]
+        - generic [ref=e18]:
+          - link "Solutions" [ref=e19] [cursor=pointer]:
+            - /url: /en/solutions
+          - img [ref=e21]
+        - link "Contact" [ref=e26] [cursor=pointer]:
+          - /url: /en/contact
+        - link "Blog" [ref=e30] [cursor=pointer]:
+          - /url: /en/blog
+        - link "About" [ref=e34] [cursor=pointer]:
+          - /url: /en/about
+        - link "Works" [ref=e38] [cursor=pointer]:
+          - /url: /en/works
+        - generic [ref=e39]:
+          - generic [ref=e40]: English
+          - img [ref=e42]
+          - combobox "Select language" [ref=e44] [cursor=pointer]:
+            - option "English" [selected]
+            - option "Français"
+        - button "Analyse my site" [ref=e45]:
+          - generic [ref=e46]: Analyse my site
+    - generic [ref=e48]:
+      - heading "Structured digital solutions to clarify, automate and scale your operations." [level=1] [ref=e90]
+      - generic [ref=e91]:
+        - generic [ref=e93]:
+          - generic [ref=e94]: Discover all our solutions
+          - img "Image" [ref=e95]
+        - generic [ref=e97]:
+          - generic [ref=e98]: Learn more
+          - img "Image" [ref=e99]
+    - generic [ref=e51]:
+      - generic [ref=e102]: Solutions
+      - generic [ref=e103]:
+        - heading "A structured approach to design, evaluate and improve your digital systems." [level=2] [ref=e104]
+        - generic [ref=e105]: This page brings together the main ways Bauhem helps teams build clearer, more efficient websites, portals and workflows that are easier to scale.
+    - generic [ref=e62]:
+      - generic [ref=e68] [cursor=pointer]:
+        - generic [ref=e69]: Discutons de votre projet
+        - img "Image" [ref=e70]
+      - img "Image" [ref=e72]
+  - link "This website was built using Ycode." [ref=e75] [cursor=pointer]:
+    - /url: https://ycode.com
+    - img [ref=e76]
+    - img [ref=e78]
+  - button "Open Next.js Dev Tools" [ref=e85] [cursor=pointer]:
+    - img [ref=e86]
+  - alert [ref=e108]

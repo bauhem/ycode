@@ -669,7 +669,23 @@ These notes were observed during prior imports and may be fixed or partially mit
    - **Detection**: Query translations for the sub-component ID vs. the parent component ID — translations exist for the former, not the latter.
    - **Verification**: After fix, check that no visible French text remains on `/en` pages. Inspect responsive JSON data attributes for `data-layer-id` matches to confirm.
    - **File**: `lib/resolve-components.ts:564-572`
-   - **Fix applied 2026-06-08**: Added `|| layer._masterComponentId` guard.
+    - **Fix applied 2026-06-08**: Added `|| layer._masterComponentId` guard.
+
+9. **SQL edits to `components.layers` only affect the draft row → frontend renders stale published version**
+   - **Bug**: Direct SQL `UPDATE components SET layers = jsonb_set(...) WHERE is_published = false` only updates the draft components row. The frontend reads `is_published = true` rows, which remain stale.
+   - **Symptom**: Changes to component layers (text bindings, CMS field references, structure) appear in the builder but NOT on the public frontend at `/en/...` or `/...`.
+   - **Root cause**: YCode's dual-record architecture (draft + published) for components. The builder renders from `is_published = false`, the site renderer from `is_published = true`.
+   - **Workaround**: Prefer `ycode_update_component_layers` (MCP) which syncs both draft and published. If SQL is unavoidable, apply the same `jsonb_set` to BOTH `WHERE is_published = false` AND `WHERE is_published = true`.
+   - **Detection**: Compare `layers` and `variants` between `is_published = false` and `is_published = true` rows with `SELECT is_published, layers #> '{path}' FROM components WHERE id = '...'`.
+   - **Lesson learned 2026-06-08**: Hours spent debugging why `dynamicVariable` changes didn't render on `/en/solutions` — the draft had the fix, the published row still had the broken original binding.
+
+10. **Component-level static translations override CMS-bound `dynamicVariable` text layers**
+   - **Bug**: Translations stored as `source_type: "component"` with `content_key: "layer:<layer_id>:text"` take priority over CMS field resolution. When `injectTranslatedText` runs (after `injectCollectionData`), it overwrites the already-resolved CMS field value with the static translation text.
+   - **Symptom**: On localized pages, CMS-bound text shows the static translation placeholder instead of the actual CMS field value. e.g., description shows "Project Description" instead of the real description text.
+   - **Root cause**: `injectTranslatedText` in `page-fetcher.ts` runs AFTER `resolveCollectionLayers` + `injectCollectionData`. It blindly replaces layer text with whatever translation exists, even if the layer's text was resolved from a CMS field.
+   - **Workaround**: Delete component-level translations for layers that are bound to CMS fields via `dynamicVariable`. These layers render their content from CMS data, not from static text. Only keep component translations for layers with truly static text (labels like "Client :", "Focus :", button text like "En savoir plus").
+   - **Detection**: `SELECT content_key, content_value FROM translations WHERE source_type = 'component' AND source_id = '<component_id>' AND locale_id = '<en_locale>' AND content_key LIKE 'layer:%:text'`. Cross-reference against the component's `ycode_get_component` output — any text layer using `dynamicVariable` nodes should NOT have a component translation.
+   - **Lesson learned 2026-06-08**: Case Studies listing (`0a12f9b3-...0011`) had `layer:cs-list-description:text = "Project Description"` and `layer:cs-list-client-value:text = "Client"` — deleted these to restore CMS field rendering on `/en/works`.
 
 ---
 

@@ -1,0 +1,106 @@
+- generic [active] [ref=e1]:
+  - main [ref=e2]:
+    - generic [ref=e4]:
+      - link "Image" [ref=e6] [cursor=pointer]:
+        - /url: /en/
+        - img "Image" [ref=e7]
+      - generic [ref=e8]:
+        - generic [ref=e11]:
+          - link "Services" [ref=e12] [cursor=pointer]:
+            - /url: /en/services
+          - img [ref=e14]
+        - generic [ref=e18]:
+          - link "Solutions" [ref=e19] [cursor=pointer]:
+            - /url: /en/solutions
+          - img [ref=e21]
+        - link "Contact" [ref=e26] [cursor=pointer]:
+          - /url: /en/contact
+        - link "Blog" [ref=e30] [cursor=pointer]:
+          - /url: /en/blog
+        - link "About" [ref=e34] [cursor=pointer]:
+          - /url: /en/about
+        - link "Works" [ref=e38] [cursor=pointer]:
+          - /url: /en/works
+        - generic [ref=e39]:
+          - generic [ref=e40]: English
+          - img [ref=e42]
+          - combobox "Select language" [ref=e44] [cursor=pointer]:
+            - option "English" [selected]
+            - option "Français"
+        - button "Analyse my site" [ref=e45]:
+          - generic [ref=e46]: Analyse my site
+    - generic [ref=e49]:
+      - generic [ref=e80]: Case Studies
+      - heading "The impact of our decisions on your digital systems." [level=1] [ref=e82]
+      - generic [ref=e84]: A selection of projects demonstrating how structured engineering improves performance, safety, and operational efficiency.
+    - generic [ref=e51]:
+      - generic [ref=e85]:
+        - link "Image" [ref=e86] [cursor=pointer]:
+          - /url: /en/realisations/ose-media
+          - img "Image" [ref=e87]
+        - generic [ref=e88]:
+          - generic [ref=e89]:
+            - generic [ref=e90]:
+              - link "OSE Media | cultural brand, media platform and event discoverability" [ref=e91] [cursor=pointer]:
+                - /url: /en/realisations/ose-media
+                - heading "OSE Media | cultural brand, media platform and event discoverability" [level=2] [ref=e92]
+              - paragraph [ref=e93]: Project Description
+            - generic [ref=e94]:
+              - generic [ref=e95]:
+                - generic [ref=e96]: "Client :"
+                - paragraph [ref=e97]: Client
+              - generic [ref=e98]:
+                - generic [ref=e99]: "Focus :"
+                - paragraph [ref=e100]: Branding, Structure & Content
+          - link "Voir la réalisation" [ref=e102] [cursor=pointer]:
+            - /url: /en/realisations/ose-media
+            - paragraph [ref=e103]: Voir la réalisation
+      - generic [ref=e104]:
+        - link "Image" [ref=e105] [cursor=pointer]:
+          - /url: /en/realisations/groupe-industriel-ami
+          - img "Image" [ref=e106]
+        - generic [ref=e107]:
+          - generic [ref=e108]:
+            - generic [ref=e109]:
+              - link "Groupe Industriel AMI | Webflow Site for Industrial Equipment Company" [ref=e110] [cursor=pointer]:
+                - /url: /en/realisations/groupe-industriel-ami
+                - heading "Groupe Industriel AMI | Webflow Site for Industrial Equipment Company" [level=2] [ref=e111]
+              - paragraph [ref=e112]: Project Description
+            - generic [ref=e113]:
+              - generic [ref=e114]:
+                - generic [ref=e115]: "Client :"
+                - paragraph [ref=e116]: Client
+              - generic [ref=e117]:
+                - generic [ref=e118]: "Focus :"
+                - paragraph [ref=e119]: Modernization of Aging Websites & Systems
+          - link "Voir la réalisation" [ref=e121] [cursor=pointer]:
+            - /url: /en/realisations/groupe-industriel-ami
+            - paragraph [ref=e122]: Voir la réalisation
+      - generic [ref=e123]:
+        - link "Image" [ref=e124] [cursor=pointer]:
+          - /url: /en/realisations/ampli-de-quebec
+          - img "Image" [ref=e125]
+        - generic [ref=e126]:
+          - generic [ref=e127]:
+            - generic [ref=e128]:
+              - link "Ampli de Québec | Headless pipeline between Airtable and DatoCMS" [ref=e129] [cursor=pointer]:
+                - /url: /en/realisations/ampli-de-quebec
+                - heading "Ampli de Québec | Headless pipeline between Airtable and DatoCMS" [level=2] [ref=e130]
+              - paragraph [ref=e131]: Project Description
+            - generic [ref=e132]:
+              - generic [ref=e133]:
+                - generic [ref=e134]: "Client :"
+                - paragraph [ref=e135]: Client
+              - generic [ref=e136]:
+                - generic [ref=e137]: "Focus :"
+                - paragraph [ref=e138]: Process & Data Automation
+          - link "Voir la réalisation" [ref=e140] [cursor=pointer]:
+            - /url: /en/realisations/ampli-de-quebec
+            - paragraph [ref=e141]: Voir la réalisation
+  - link "This website was built using Ycode." [ref=e65] [cursor=pointer]:
+    - /url: https://ycode.com
+    - img [ref=e66]
+    - img [ref=e68]
+  - button "Open Next.js Dev Tools" [ref=e75] [cursor=pointer]:
+    - img [ref=e76]
+  - alert [ref=e142]
