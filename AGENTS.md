@@ -369,6 +369,30 @@ For general client Webflow migrations, first read `docs/WEBFLOW_TO_YCODE_NATIVE_
 - Translation writes validate content format before saving. Treat batch failures as all-or-nothing: fix the reported invalid entries and retry the batch.
 - `get_unpublished_changes` now includes pending translations and locales. Check it before any publish discussion, but still never publish without explicit user confirmation.
 
+### YCode 1.19.0 Updates
+- **Static export date presets**: Client-side re-evaluation of date-preset visibility rules (#304). Dynamic date presets supported in conditional visibility (#303).
+- **Component renaming**: Components can be renamed natively via the builder (#302). No more SQL workarounds for name changes.
+- **CMS pagination fix**: All CMS items now shown on paginated collection pages (#307).
+- **Slider in rich text**: Sliders now work inside rich-text content on published pages (#310).
+- **Rich text quotes**: Quotes now displayed in dynamic rich text on published pages (#309).
+
+### YCode 1.20.0 Updates
+- **Copy-paste from Webflow and Figma**: You can now copy elements directly from Webflow or Figma and paste them into the Ycode canvas. This is a major workflow accelerator — always test copy-paste before falling back to DevLink export or manual reconstruction.
+- **Native hreflang tags**: Hreflang tags are automatically added to localized page heads (#317). No manual intervention needed for multi-locale SEO.
+- **Publishing performance**: Batched bulk reads speed up publishing (#327).
+- **Mobile video autoplay**: Videos autoplay inline on mobile (#328).
+
+### YCode 1.21.0 Updates
+- **Filter collections by current page item (#331)**: Native filtering — a cleaner alternative to `inverse_reference` for related content on dynamic detail pages.
+- **Active-page current state for navigation links (#332)**: Current page highlighting for nav links.
+- **Duplicate dynamic pages (#335)**: Dynamic pages can now be duplicated natively.
+- **Static export custom code (#330)**: Global and page-level custom code emitted in static exports.
+- **Canvas panning (#338)**: Space-drag or middle mouse to pan the canvas.
+- **Expand MCP CMS and dynamic content support (#339)**: Broader MCP surface for CMS operations.
+- **Icon fixes (#329)**: Icons stay visible and sized to their real proportions.
+- **Slider rendering fixes (#333)**: Slider images and active dot render correctly on published pages.
+- **Translation fixes (#334)**: Referenced CMS values and embedded components now translate correctly.
+
 ### Critical Rule: Read EVERY source file upfront
 
 Before touching any MCP tool, you MUST read ALL of these source files:

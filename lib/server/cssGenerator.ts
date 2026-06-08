@@ -188,14 +188,21 @@ export async function generateCSSForPage(pageId: string): Promise<string | null>
 export async function generateCSSForPages(pageIds: string[]): Promise<number> {
   if (pageIds.length === 0) return 0;
 
-  const components = await getAllComponents(false);
+  const [components, pageRows] = await Promise.all([
+    getAllComponents(false),
+    fetchPages(pageIds),
+  ]);
+  const pagesByIdMap = new Map(pageRows.map(p => [p.id, p]));
   let updated = 0;
 
   for (const pageId of pageIds) {
     const pageLayers = await getDraftLayers(pageId);
     if (!pageLayers?.layers) continue;
 
-    const layersForCss = collectLayersWithComponents(pageLayers.layers, components);
+    const isDynamic = pagesByIdMap.get(pageId)?.is_dynamic ?? false;
+    const layersForCss = isDynamic
+      ? collectLayersWithAllComponents(pageLayers.layers, components)
+      : collectLayersWithComponents(pageLayers.layers, components);
     const classes = extractClassesFromLayers(layersForCss);
     const css = await compileCss(Array.from(classes));
 
@@ -204,6 +211,18 @@ export async function generateCSSForPages(pageIds: string[]): Promise<number> {
   }
 
   return updated;
+}
+
+async function fetchPages(pageIds: string[]): Promise<Array<{ id: string; is_dynamic: boolean }>> {
+  const client = await getSupabaseAdmin();
+  if (!client || pageIds.length === 0) return [];
+  const { data } = await client
+    .from('pages')
+    .select('id, is_dynamic')
+    .in('id', pageIds)
+    .eq('is_published', false)
+    .is('deleted_at', null);
+  return data ?? [];
 }
 
 /**

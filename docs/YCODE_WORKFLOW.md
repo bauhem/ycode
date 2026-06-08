@@ -7,19 +7,36 @@ This repository is built around two different layers of work:
 
 For component work, the builder state is the source of truth.
 
+**Ycode version context (June 2026, latest: 1.21.0):** Ycode evolves fast — check https://github.com/ycode/ycode/releases before each major task. Key recent features:
+
+| Version | Feature | Impact |
+|---|---|---|
+| 1.21.0 | Filter collections by current page item | Native CMS filtering — alternative to inverse_reference |
+| 1.21.0 | Expand MCP CMS support | Broader MCP surface for dynamic content |
+| 1.21.0 | Duplicate dynamic pages | Native page duplication |
+| 1.21.0 | Canvas panning (Space-drag) | UX improvement |
+| 1.20.0 | **Copy-paste from Webflow & Figma** | #1 accelerator — try before DevLink export |
+| 1.20.0 | Native hreflang tags | Auto-generated for localized pages |
+| 1.19.0 | Component renaming | Native via builder — no more SQL |
+| 1.19.0 | Sliders in rich text | Sliders now work inside rich-text content |
+| 1.18.0 | MCP translations end-to-end | `ycode_list_translatable_content` for key discovery |
+| 1.18.0 | Component override translations | Instance overrides are now translatable |
+
 ## Working model
 
 Use this order for new components or page-level composition work:
 
-1. Create a new component in the YCode builder.
-2. Keep the existing component untouched unless the user explicitly asks for a replacement.
-3. Add the new component instance to the target page or `body`.
-4. Validate the result in the browser on the authenticated builder UI.
-5. Only use direct database writes when the YCode 1.13.0 MCP/editor surface does not expose a needed operation or when repairing malformed legacy JSON.
+1. **Try copy-paste first (1.20.0+):** Copy directly from Webflow or Figma and paste into the Ycode canvas. For simple sections and UI elements, this can save hours of reconstruction.
+2. Create a new component in the YCode builder (or use copy-paste to jump-start it).
+3. Keep the existing component untouched unless the user explicitly asks for a replacement.
+4. Add the new component instance to the target page or `body`.
+5. Validate the result in the browser on the authenticated builder UI.
+6. Only use direct database writes when the YCode MCP/editor surface does not expose a needed operation or when repairing malformed legacy JSON.
 
 ## What to use for what
 
-- **YCode builder / MCP**: create components, edit layers, manage variables, variants, CMS, settings, form behavior, redirects, translations, interactions, animations, and keep the editor tree in sync.
+- **YCode builder / MCP**: create components, edit layers, manage variables, variants, CMS, settings, form behavior, redirects, translations, interactions, animations, and keep the editor tree in sync. MCP surface has expanded significantly in 1.19→1.21 — always prefer MCP over SQL.
+- **Copy-paste (1.20.0+)**: copy directly from Webflow or Figma into the canvas. Fastest path for simple sections.
 - **Browser**: verify the real editor UI, confirm the component is visible, and test insertion/selection behavior.
 - **Supabase / SQL**: repair builder state only when the operation is not exposed cleanly by MCP/editor tools.
 
@@ -30,7 +47,9 @@ Use this order for new components or page-level composition work:
 - Keep responsive behavior in the component from the beginning.
 - Validate that the new instance is actually present in the page layer tree, not only in the component library.
 - Do not treat Supabase as the design tool. It is a persistence layer, not the editor.
-- In YCode 1.13.0, prefer native MCP component variants and interactions over duplicate components or custom scripts.
+- Prefer native MCP component variants and interactions over duplicate components or custom scripts.
+- **Copy-paste first (1.20.0+):** For Webflow/Figma imports, always test copy-paste before falling back to DevLink export or manual rebuild.
+- **Component renaming (1.19.0+):** Use native rename in the builder instead of SQL workarounds.
 - Never run static export, publish, or GitHub/S3/local export delivery without explicit user confirmation.
 
 ## Practical example
@@ -108,7 +127,7 @@ A component is considered complete only when all of these are true:
 
 YCode component variants live in the component record, not as separate components.
 
-As of YCode 1.13.0, component variants are scriptable through MCP. Use MCP variant operations for normal variant work before considering SQL.
+Component variants are scriptable through MCP. Use MCP variant operations for normal variant work before considering SQL.
 
 - `components.variants` is an array of variant objects: `{ id, name, layers }`.
 - Each variant owns its own complete `layers` tree. Duplicated variants usually generate new layer IDs, so do not assume child layer IDs match across variants.
@@ -228,7 +247,7 @@ YCode has no native tabs element. Rebuild tabbed CMS sections with a native YCod
 
 ## Native interactions and animations
 
-YCode 1.13.0 exposes layer interactions through MCP.
+YCode exposes layer interactions through MCP.
 
 - Use curated reveal, hover, click, parallax, stagger, and loop presets for common Webflow motion patterns.
 - Use raw layer interactions only when presets cannot reproduce the source behavior.
@@ -242,7 +261,7 @@ YCode 1.13.0 exposes layer interactions through MCP.
 
 ## Static HTML export
 
-YCode 1.13.0 can export published pages as standalone HTML to local disk, S3, or GitHub.
+YCode can export published pages as standalone HTML to local disk, S3, or GitHub.
 
 - Export uses published state, not draft Builder state.
 - Publish/export requires explicit user confirmation.
