@@ -338,8 +338,9 @@ export default async function Page({ params }: PageProps) {
     }
   }
 
-  // Per-page CSS with fallback to global published_css
-  const cssForPage = generatedCss || globalSettings.publishedCss || undefined;
+  // Per-page CSS concatenated with global published_css.
+  // Page-specific generated_css often contains only base reset for dynamic templates.
+  const cssForPage = [generatedCss, globalSettings.publishedCss].filter(Boolean).join('\n') || undefined;
 
   // Check password protection for this page.
   // First evaluate without cookies() so non-protected pages stay cacheable.
