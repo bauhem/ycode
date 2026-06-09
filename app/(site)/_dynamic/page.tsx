@@ -112,12 +112,14 @@ export default async function DynamicHome({ searchParams }: DynamicHomeProps) {
 
   const globalSettings = await fetchGlobalPageSettings();
 
+  const cssForPage = data.generatedCss || globalSettings.publishedCss || undefined;
+
   return (
     <PageRenderer
       page={data.page}
       layers={data.pageLayers.layers || []}
       components={[]}
-      generatedCss={globalSettings.publishedCss || undefined}
+      generatedCss={cssForPage}
       colorVariablesCss={globalSettings.colorVariablesCss || undefined}
       locale={data.locale}
       availableLocales={data.availableLocales}

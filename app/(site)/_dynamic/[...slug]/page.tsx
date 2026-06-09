@@ -81,7 +81,9 @@ export default async function DynamicSlugPage({ params, searchParams }: DynamicS
     notFound();
   }
 
-  const { page, pageLayers, components, collectionItem, collectionFields, pageCollectionSortedItemIds, pageCollectionSortedItemSlugs, locale, availableLocales, translations } = data;
+  const { page, pageLayers, components, collectionItem, collectionFields, pageCollectionSortedItemIds, pageCollectionSortedItemSlugs, locale, availableLocales, translations, generatedCss } = data;
+
+  const cssForPage = generatedCss || globalSettings.publishedCss || undefined;
 
   const folders = await fetchFoldersForAuth(true);
   const protectionCheck = getPasswordProtection(page, folders, null);
@@ -101,7 +103,7 @@ export default async function DynamicSlugPage({ params, searchParams }: DynamicS
             page={errorPage}
             layers={errorPageLayers.layers || []}
             components={errorComponents}
-            generatedCss={globalSettings.publishedCss || undefined}
+            generatedCss={cssForPage}
             colorVariablesCss={globalSettings.colorVariablesCss || undefined}
             ycodeBadge={globalSettings.ycodeBadge}
             passwordProtection={{
@@ -137,7 +139,7 @@ export default async function DynamicSlugPage({ params, searchParams }: DynamicS
       page={page}
       layers={pageLayers.layers || []}
       components={components}
-      generatedCss={globalSettings.publishedCss || undefined}
+      generatedCss={cssForPage}
       colorVariablesCss={globalSettings.colorVariablesCss || undefined}
       collectionItem={collectionItem}
       collectionFields={collectionFields}
