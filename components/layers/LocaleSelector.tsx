@@ -41,12 +41,14 @@ export default function LocaleSelector({
     // Use pre-computed URL when available (handles CMS slug translation correctly).
     if (localizedPageUrls?.[selectedLocaleId]) {
       const prefix = isPreviewMode ? '/ycode/preview' : '';
+      console.log('[LocaleSelector] Using pre-computed URL for locale:', selectedLocaleId, '→', localizedPageUrls[selectedLocaleId]);
       window.location.href = `${prefix}${localizedPageUrls[selectedLocaleId]}`;
       return;
     }
 
     // Fallback: naive locale-code prefixing (legacy behaviour for pages
     // where localizedPageUrls was not computed).
+    console.warn('[LocaleSelector] localizedPageUrls missing for locale:', selectedLocaleId, 'available keys:', localizedPageUrls ? Object.keys(localizedPageUrls) : 'undefined');
     const newUrl = buildLocalizedUrl(currentPageSlug, selectedLocale, currentLocale || null, isPreviewMode);
     window.location.href = newUrl;
   };
