@@ -318,6 +318,26 @@ export default async function Page({ params }: PageProps) {
 
   const { page, pageLayers, components, collectionItem, collectionFields, pageCollectionSortedItemIds, pageCollectionSortedItemSlugs, locale, availableLocales, translations, generatedCss } = data;
 
+  // Redirect to canonical slug when a non-default locale accesses a dynamic page
+  // via its original (non-translated) slug (e.g. /en/refonte-de-site-webflow -> /en/webflow-website-redesign)
+  if (collectionItem && collectionFields && locale && !locale.is_default && translations && page.is_dynamic) {
+    const slugFieldId = page.settings?.cms?.slug_field_id;
+    const slugField = slugFieldId ? collectionFields.find(f => f.id === slugFieldId) : collectionFields.find(f => f.key === 'slug');
+    if (slugField) {
+      const contentKey = slugField.key ? `field:key:${slugField.key}` : `field:id:${slugField.id}`;
+      const translationKey = `cms:${collectionItem.id}:${contentKey}`;
+      const slugTranslation = translations[translationKey];
+      if (slugTranslation?.content_value) {
+        const pathSegments = slugPath.split('/');
+        const urlSlug = pathSegments[pathSegments.length - 1];
+        if (urlSlug !== slugTranslation.content_value) {
+          const correctPath = '/' + pathSegments.slice(0, -1).join('/') + '/' + slugTranslation.content_value;
+          permanentRedirect(correctPath);
+        }
+      }
+    }
+  }
+
   // Per-page CSS with fallback to global published_css
   const cssForPage = generatedCss || globalSettings.publishedCss || undefined;
 
