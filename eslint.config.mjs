@@ -4,6 +4,7 @@ import { configs as tseslintConfigs } from 'typescript-eslint';
 import reactPlugin from 'eslint-plugin-react';
 import reactHooksPlugin from 'eslint-plugin-react-hooks';
 import nextPlugin from '@next/eslint-plugin-next';
+import nodeGlobals from 'globals';
 
 // Global ignores
 const ignoresConfig = defineConfig([
@@ -148,10 +149,30 @@ const customRulesConfig = defineConfig([
   },
 ]);
 
+// Node.js config for Netlify functions
+const nodeConfig = defineConfig([
+  {
+    name: 'project/node-functions',
+    files: ['netlify/functions/**/*.{js,mjs}'],
+    languageOptions: {
+      globals: {
+        ...nodeGlobals.node,
+      },
+    },
+    rules: {
+      'indent': 'off',
+      'quotes': 'off',
+      'no-unused-vars': 'warn',
+      'no-undef': 'off',
+    },
+  },
+]);
+
 export default defineConfig([
   ...ignoresConfig,
   ...eslintConfig,
   ...typescriptConfig,
   ...reactConfig,
   ...customRulesConfig,
+  ...nodeConfig,
 ]);

@@ -12,4 +12,5 @@
   targetPort = 3002
 
 [functions]
+  directory = "netlify/functions"
   included_files = ["lib/**", "hooks/**", "stores/**", "types/**", "database/migrations/**"]
