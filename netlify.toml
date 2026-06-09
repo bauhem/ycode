@@ -8,5 +8,8 @@
 [[plugins]]
   package = "@netlify/plugin-nextjs"
 
+[dev]
+  targetPort = 3002
+
 [functions]
   included_files = ["lib/**", "hooks/**", "stores/**", "types/**", "database/migrations/**"]

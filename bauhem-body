@@ -1,0 +1,55 @@
+- generic [active] [ref=e1]:
+  - main [ref=e2]:
+    - generic [ref=e4]:
+      - link "Image" [ref=e6] [cursor=pointer]:
+        - /url: /
+        - img "Image" [ref=e7]
+      - generic [ref=e8]:
+        - generic [ref=e11]:
+          - link "Services" [ref=e12] [cursor=pointer]:
+            - /url: /services
+          - img [ref=e14]
+        - generic [ref=e18]:
+          - link "Solutions" [ref=e19] [cursor=pointer]:
+            - /url: /solutions
+          - img [ref=e21]
+        - link "À propos" [ref=e26] [cursor=pointer]:
+          - /url: /a-propos
+        - link "Réalisations" [ref=e30] [cursor=pointer]:
+          - /url: /realisations
+        - link "Blog" [ref=e34] [cursor=pointer]:
+          - /url: /blog
+        - link "Contact" [ref=e38] [cursor=pointer]:
+          - /url: /contact
+        - generic [ref=e39]:
+          - generic [ref=e40]: Français
+          - img [ref=e42]
+          - combobox "Select language" [ref=e44] [cursor=pointer]:
+            - option "English"
+            - option "Français" [selected]
+        - button "Analyser mon site" [ref=e45] [cursor=pointer]:
+          - generic [ref=e46]: Analyser mon site
+    - generic [ref=e52]:
+      - generic [ref=e53]:
+        - generic [ref=e54]:
+          - paragraph [ref=e120]: Pour être découvert et compris, votre site doit être structuré, clair et performant.
+          - button "Découvrez nos solutions Image description" [ref=e121] [cursor=pointer]:
+            - generic [ref=e122]:
+              - paragraph [ref=e123]: Découvrez nos solutions
+              - img "Image description" [ref=e124]
+        - heading "Le design seul ne suffit plus" [level=1] [ref=e125]
+      - generic [ref=e56]:
+        - paragraph [ref=e58]: Bauhem conçoit des sites, portails et systèmes web structurés pour aider les PME à être mieux comprises par leurs clients, Google et les outils d'IA.
+        - generic [ref=e60] [cursor=pointer]:
+          - generic [ref=e61]: Découvrez en plus
+          - img "Image" [ref=e62]
+    - generic [ref=e101]:
+      - generic [ref=e107] [cursor=pointer]:
+        - generic [ref=e108]: Discutons de votre projet
+        - img "Image" [ref=e109]
+      - img "Image" [ref=e111]
+  - link "This website was built using Ycode." [ref=e114] [cursor=pointer]:
+    - /url: https://ycode.com
+    - img [ref=e115]
+    - img [ref=e117]
+  - alert [ref=e119]
