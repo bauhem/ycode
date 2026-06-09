@@ -112,7 +112,9 @@ export default async function DynamicHome({ searchParams }: DynamicHomeProps) {
 
   const globalSettings = await fetchGlobalPageSettings();
 
-  const cssForPage = data.generatedCss || globalSettings.publishedCss || undefined;
+  // Dynamic pages have minimal generated_css (only base reset).
+  // Concatenate with global publishedCss to get all utility classes.
+  const cssForPage = [data.generatedCss, globalSettings.publishedCss].filter(Boolean).join('\n') || undefined;
 
   return (
     <PageRenderer

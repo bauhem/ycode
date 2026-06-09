@@ -83,7 +83,9 @@ export default async function DynamicSlugPage({ params, searchParams }: DynamicS
 
   const { page, pageLayers, components, collectionItem, collectionFields, pageCollectionSortedItemIds, pageCollectionSortedItemSlugs, locale, availableLocales, translations, generatedCss } = data;
 
-  const cssForPage = generatedCss || globalSettings.publishedCss || undefined;
+  // Dynamic pages have minimal generated_css (only base reset).
+  // Concatenate with global publishedCss to get all utility classes.
+  const cssForPage = [generatedCss, globalSettings.publishedCss].filter(Boolean).join('\n') || undefined;
 
   const folders = await fetchFoldersForAuth(true);
   const protectionCheck = getPasswordProtection(page, folders, null);
