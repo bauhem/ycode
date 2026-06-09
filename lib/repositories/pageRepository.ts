@@ -410,6 +410,7 @@ export async function createPage(pageData: CreatePageData, additionalData?: Reco
     is_index: normalizedPageData.is_index || false,
     is_dynamic: normalizedPageData.is_dynamic || false,
     error_page: normalizedPageData.error_page || null,
+    order: normalizedPageData.order ?? 0,
   });
 
   // Remove any content_hash from pageData to prevent override
@@ -516,6 +517,7 @@ export async function updatePage(id: string, updates: UpdatePageData): Promise<P
     is_index: normalizedUpdates.is_index !== undefined ? normalizedUpdates.is_index : currentPage.is_index,
     is_dynamic: normalizedUpdates.is_dynamic !== undefined ? normalizedUpdates.is_dynamic : currentPage.is_dynamic,
     error_page: normalizedUpdates.error_page !== undefined ? normalizedUpdates.error_page : currentPage.error_page,
+    order: normalizedUpdates.order !== undefined ? normalizedUpdates.order : currentPage.order,
   };
 
   const contentHash = generatePageMetadataHash(finalData);
@@ -940,6 +942,7 @@ export async function backfillMissingPageHashes(): Promise<{
         is_index: page.is_index || false,
         is_dynamic: page.is_dynamic || false,
         error_page: page.error_page ?? null,
+        order: page.order ?? 0,
       }),
     }));
 
@@ -984,11 +987,13 @@ export async function backfillMissingPageHashes(): Promise<{
 }
 
 /**
- * Treat a null on either side as "unchanged" — null hashes are pre-backfill
- * legacy rows that will be repaired on the next backfill pass, not real diffs.
+ * Whether two hashes are materially different.
+ * Null hashes mean "needs processing" — they are treated as different from
+ * non-null hashes so backfill + publish picks up changes correctly.
  */
 function hashesDiffer(a: string | null, b: string | null): boolean {
-  if (a === null || b === null) return false;
+  if (a === null && b === null) return false;
+  if (a === null || b === null) return true;
   return a !== b;
 }
 

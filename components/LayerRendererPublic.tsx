@@ -110,6 +110,8 @@ interface LayerRendererPublicProps {
   ancestorComponentIds?: Set<string>;
   isSlideChild?: boolean;
   serverSettings?: Record<string, unknown>;
+  /** Pre-computed map of localeId → full URL path for the language switcher. */
+  localizedPageUrls?: Record<string, string>;
   /**
    * Layer id of the LCP candidate image, detected server-side. When this image
    * is rendered we override the template's default `loading="lazy"` with
@@ -154,6 +156,7 @@ const LayerRendererPublic: React.FC<LayerRendererPublicProps> = ({
   serverSettings,
   lcpCandidateLayerId,
   passwordProtection,
+  localizedPageUrls,
 }) => {
   const anchorMap = useMemo(() => {
     return anchorMapProp || buildAnchorMap(layers);
@@ -268,6 +271,7 @@ const LayerRendererPublic: React.FC<LayerRendererPublicProps> = ({
         serverSettings={serverSettings}
         lcpCandidateLayerId={lcpCandidateLayerId}
         passwordProtection={passwordProtection}
+        localizedPageUrls={localizedPageUrls}
       />
     );
   };
@@ -310,6 +314,7 @@ const LayerItem: React.FC<{
   serverSettings?: Record<string, unknown>;
   lcpCandidateLayerId?: string | null;
   passwordProtection?: PasswordProtectionContext;
+  localizedPageUrls?: Record<string, string>;
 }> = ({
   layer,
   isPublished,
@@ -340,6 +345,7 @@ const LayerItem: React.FC<{
   serverSettings,
   lcpCandidateLayerId,
   passwordProtection,
+  localizedPageUrls,
 }) => {
   const classesString = getClassesString(layer);
   const collectionLayerItemId = layer._collectionItemId || collectionItemId;
@@ -398,7 +404,8 @@ const LayerItem: React.FC<{
     serverSettings,
     lcpCandidateLayerId,
     passwordProtection,
-  }), [isPublished, pageId, collectionLayerData, collectionLayerItemId, effectiveLayerDataMap, pageCollectionItemId, pageCollectionItemData, pageCollectionSortedItemIds, hiddenLayerInfo, currentLocale, availableLocales, localeSelectorFormat, isInsideForm, isInsideLink, parentFormSettings, pages, folders, collectionItemSlugs, isPreview, translations, anchorMap, resolvedAssets, componentsProp, serverSettings, lcpCandidateLayerId, passwordProtection]);
+    localizedPageUrls,
+  }), [isPublished, pageId, collectionLayerData, collectionLayerItemId, effectiveLayerDataMap, pageCollectionItemId, pageCollectionItemData, pageCollectionSortedItemIds, hiddenLayerInfo, currentLocale, availableLocales, localeSelectorFormat, isInsideForm, isInsideLink, parentFormSettings, pages, folders, collectionItemSlugs, isPreview, translations, anchorMap, resolvedAssets, componentsProp, serverSettings, lcpCandidateLayerId, passwordProtection, localizedPageUrls]);
 
   const renderComponentBlock: RenderComponentBlockFn = useCallback(
     (comp, resolvedLayers, _overrides, key, innerAncestorIds) => {
@@ -1737,6 +1744,7 @@ const LayerItem: React.FC<{
             availableLocales={availableLocales}
             currentPageSlug={currentPageSlug}
             isPublished={isPublished}
+            localizedPageUrls={localizedPageUrls}
           />
         </Tag>
       );

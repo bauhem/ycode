@@ -7,17 +7,23 @@ interface LocaleSelectorProps {
   availableLocales: Locale[];
   currentPageSlug: string;
   isPublished: boolean;
+  /** Pre-computed map of localeId → full URL path (e.g. { "en": "/solutions/modernization-aging-websites-systems" }) */
+  localizedPageUrls?: Record<string, string>;
 }
 
 /**
- * Client-side locale selector for generated pages
- * Renders an invisible select element that overlays the parent container
+ * Client-side locale selector for generated pages.
+ * Renders an invisible <select> overlay that redirects to the correct
+ * localized URL — using pre-computed URLs when available (translates CMS
+ * slugs), falling back to naive locale-code prefixing for pages without
+ * pre-computed data.
  */
 export default function LocaleSelector({
   currentLocale,
   availableLocales,
   currentPageSlug,
   isPublished,
+  localizedPageUrls,
 }: LocaleSelectorProps) {
   // Detect if we're in preview mode
   const isPreviewMode = typeof window !== 'undefined' && window.location.pathname.startsWith('/ycode/preview');
@@ -30,13 +36,19 @@ export default function LocaleSelector({
     const selectedLocaleId = event.target.value;
     const selectedLocale = availableLocales.find(l => l.id === selectedLocaleId);
 
-    if (selectedLocale) {
-      // Build the new URL for the selected locale
-      const newUrl = buildLocalizedUrl(currentPageSlug, selectedLocale, currentLocale || null, isPreviewMode);
+    if (!selectedLocale) return;
 
-      // Redirect to the new URL
-      window.location.href = newUrl;
+    // Use pre-computed URL when available (handles CMS slug translation correctly).
+    if (localizedPageUrls?.[selectedLocaleId]) {
+      const prefix = isPreviewMode ? '/ycode/preview' : '';
+      window.location.href = `${prefix}${localizedPageUrls[selectedLocaleId]}`;
+      return;
     }
+
+    // Fallback: naive locale-code prefixing (legacy behaviour for pages
+    // where localizedPageUrls was not computed).
+    const newUrl = buildLocalizedUrl(currentPageSlug, selectedLocale, currentLocale || null, isPreviewMode);
+    window.location.href = newUrl;
   };
 
   return (
@@ -64,9 +76,9 @@ export default function LocaleSelector({
 }
 
 /**
- * Build localized URL for locale switching
- * Handles both default and non-default locales
- * Preserves preview mode prefix when in preview
+ * Build localized URL for locale switching (fallback when localizedPageUrls is unavailable).
+ * Handles both default and non-default locales.
+ * Preserves preview mode prefix when in preview.
  */
 function buildLocalizedUrl(
   currentPageSlug: string,

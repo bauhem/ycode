@@ -1,5 +1,27 @@
 # AI Agent Instructions — YCode Fork
 
+## ⚠️ CRITICAL — Dual-Record Architecture (Root Cause of ALL Recurring Bugs)
+
+**YCode stores TWO rows for every entity: draft (`is_published = false`) and published (`is_published = true`).**
+
+| Surface | Reads |
+|---|---|
+| Builder UI / Preview | Draft rows |
+| Public frontend (localhost:3002/en, netlify) | Published rows |
+
+**Changes made via the builder UI or MCP tools ONLY update draft rows.** To make changes visible on the public site, you MUST either:
+
+1. **Run `ycode_publish`** — syncs everything draft→published (requires user approval)
+2. **Manually sync draft→published via SQL** — for targeted fixes
+
+**This is why we keep repeating the same bugs:** we make a change, verify it in the builder/preview (draft), then check the public site (published) and it's stale. Every. Single. Time.
+
+**Checklist before declaring any task done:**
+- [ ] Did this change affect data with `is_published` column? (pages, components, page_layers, translations, collections, etc.)
+- [ ] If so, is it synced to the published row(s)?
+- [ ] If content_hash exists, is it invalidated (set to a new non-null value)?
+- [ ] Has the user approved publishing, or am I doing a manual sync?
+
 ## ⚠️ MANDATORY — Read Before Any Code Change
 
 This project follows strict coding conventions defined in `.cursorrules`.
@@ -685,7 +707,46 @@ These notes were observed during prior imports and may be fixed or partially mit
    - **Root cause**: `injectTranslatedText` in `page-fetcher.ts` runs AFTER `resolveCollectionLayers` + `injectCollectionData`. It blindly replaces layer text with whatever translation exists, even if the layer's text was resolved from a CMS field.
    - **Workaround**: Delete component-level translations for layers that are bound to CMS fields via `dynamicVariable`. These layers render their content from CMS data, not from static text. Only keep component translations for layers with truly static text (labels like "Client :", "Focus :", button text like "En savoir plus").
    - **Detection**: `SELECT content_key, content_value FROM translations WHERE source_type = 'component' AND source_id = '<component_id>' AND locale_id = '<en_locale>' AND content_key LIKE 'layer:%:text'`. Cross-reference against the component's `ycode_get_component` output — any text layer using `dynamicVariable` nodes should NOT have a component translation.
-   - **Lesson learned 2026-06-08**: Case Studies listing (`0a12f9b3-...0011`) had `layer:cs-list-description:text = "Project Description"` and `layer:cs-list-client-value:text = "Client"` — deleted these to restore CMS field rendering on `/en/works`.
+    - **Lesson learned 2026-06-08**: Case Studies listing (`0a12f9b3-...0011`) had `layer:cs-list-description:text = "Project Description"` and `layer:cs-list-client-value:text = "Client"` — deleted these to restore CMS field rendering on `/en/works`.
+
+11. **Per-page `generated_css` stale after creating/updating components → Tailwind classes missing on published dynamic pages**
+   - **Bug**: The per-page `generated_css` is pre-generated and stored in `page_layers.generated_css`. When a new component is created (or an existing one modified), the pre-generated CSS does NOT include the new/modified component's classes, even though dynamic pages use `collectLayersWithAllComponents()` to include ALL component layers at CSS-generation time.
+   - **Symptom**: Components rendered inside `richTextComponent` nodes in CMS rich-text content (e.g., the "Content Listing 3 Colonnes — Cartes cliquables" component with `rounded-[22px]`, `shadow-[...]`, etc.) render without styling on published dynamic pages — the HTML has the correct classes but the compiled CSS is missing them. Computed style shows `border-radius: 0px`, `box-shadow: none`, etc.
+   - **Root cause**: `generated_css` is generated once (at component creation or publish) and stored in `page_layers`. When a component is subsequently created or modified, the stored CSS is not automatically invalidated or regenerated. The builder/preview works because it may use a different CSS pipeline or the global `draft_css`.
+   - **Workaround**: Regenerate per-page CSS via the API endpoint, then copy the draft `generated_css` to the published row:
+
+     ```bash
+     # Step 1: Regenerate draft CSS via API
+     POST /ycode/api/css/generate-pages
+     Body: { "pageIds": ["<dynamic-page-id>"] }
+
+     # Step 2: Copy draft generated_css to published row
+     UPDATE page_layers pl_published
+     SET generated_css = pl_draft.generated_css,
+         content_hash = pl_draft.content_hash,
+         updated_at = NOW()
+     FROM page_layers pl_draft
+     WHERE pl_published.page_id = pl_draft.page_id
+       AND pl_published.is_published = true
+       AND pl_draft.is_published = false
+       AND pl_published.deleted_at IS NULL
+       AND pl_draft.deleted_at IS NULL
+       AND pl_published.page_id = '<dynamic-page-id>';
+     ```
+
+   - **Detection**: Compare `LENGTH(generated_css)` between draft and published rows:
+     ```sql
+     SELECT is_published, LENGTH(generated_css) FROM page_layers
+     WHERE page_id = '<page-id>' AND deleted_at IS NULL;
+     ```
+     If they differ, the published CSS is stale. Or check if the specific class is in the CSS:
+     ```sql
+     SELECT generated_css LIKE '%rounded-\[22px\]%' FROM page_layers
+     WHERE page_id = '<page-id>' AND is_published = true AND deleted_at IS NULL;
+     ```
+   - **Prevention**: After creating or modifying any component via MCP or SQL, always regenerate CSS for all dynamic pages (`/ycode/api/css/generate-pages`) and sync to published rows.
+   - **CSS architecture context**: `lib/server/cssGenerator.ts` — `generateCSSForPage()` generates per-page CSS. `collectLayersWithAllComponents()` (line 273) includes ALL component variant layers for dynamic pages. But it only runs when `generateCSSForPage()` is called — it does not auto-trigger on component changes.
+   - **Lesson learned 2026-06-08**: The "Content Listing 3 Colonnes" component (`dce9de95`) had `rounded-[22px]` on its card layer classes but the per-page CSS for `/realisations/ose-media` was generated before this component existed. The CSS went from 69101 → 85688 bytes after regeneration.
 
 ---
 

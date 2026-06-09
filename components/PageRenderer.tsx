@@ -22,7 +22,10 @@ import { getItemsWithValues, getItemsWithValuesByIds } from '@/lib/repositories/
 import { getFieldsByCollectionId } from '@/lib/repositories/collectionFieldRepository';
 import { REF_PAGE_PREFIX, REF_COLLECTION_PREFIX, isCollectionItemKeyword, parseCollectionLinkValue } from '@/lib/link-utils';
 import { getClassesString, hasPasswordFormLayer } from '@/lib/layer-utils';
-import type { Layer, Component, Page, CollectionItemWithValues, CollectionField, Locale, PageFolder, PasswordProtectionContext } from '@/types';
+import { getTranslatableKey } from '@/lib/locale-runtime';
+import { buildLocalizedSlugPath, buildLocalizedDynamicPageUrl } from '@/lib/page-utils';
+import { getSupabaseAdmin } from '@/lib/supabase-server';
+import type { Layer, Component, Page, CollectionItemWithValues, CollectionField, Locale, PageFolder, PasswordProtectionContext, Translation } from '@/types';
 
 interface PageLinkRef { collection_item_id: string; page_id: string }
 
@@ -37,6 +40,140 @@ const getCachedPublishedFolders = unstable_cache(
   ['page-renderer-published-folders'],
   { tags: ['all-pages'], revalidate: false }
 );
+
+/** Cached fetch of ALL published translations (all locales). Used only for
+ * computing the localizedPageUrls map for the language switcher. Grouped by
+ * locale_id → translatableKey → Translation. */
+const getCachedAllPublishedTranslationsByLocale = unstable_cache(
+  async (): Promise<Record<string, Record<string, Translation>>> => {
+    const supabase = await getSupabaseAdmin();
+    if (!supabase) return {};
+
+    // Paginate to avoid the default 1000-row PostgREST cap.
+    const PAGE_SIZE = 1000;
+    const rows: Translation[] = [];
+    for (let from = 0; ; from += PAGE_SIZE) {
+      const { data, error } = await supabase
+        .from('translations')
+        .select('*')
+        .eq('is_published', true)
+        .is('deleted_at', null)
+        .range(from, from + PAGE_SIZE - 1);
+
+      if (error || !data || data.length === 0) break;
+      rows.push(...(data as Translation[]));
+      if (data.length < PAGE_SIZE) break;
+    }
+
+    const byLocale: Record<string, Record<string, Translation>> = {};
+    for (const t of rows) {
+      if (!byLocale[t.locale_id]) byLocale[t.locale_id] = {};
+      byLocale[t.locale_id][getTranslatableKey(t)] = t;
+    }
+    return byLocale;
+  },
+  ['page-renderer-all-translations-published'],
+  { tags: ['all-pages'], revalidate: false }
+);
+
+/** Cached fetch of ALL draft translations (all locales). */
+const getCachedAllDraftTranslationsByLocale = unstable_cache(
+  async (): Promise<Record<string, Record<string, Translation>>> => {
+    const supabase = await getSupabaseAdmin();
+    if (!supabase) return {};
+
+    const PAGE_SIZE = 1000;
+    const rows: Translation[] = [];
+    for (let from = 0; ; from += PAGE_SIZE) {
+      const { data, error } = await supabase
+        .from('translations')
+        .select('*')
+        .eq('is_published', false)
+        .is('deleted_at', null)
+        .range(from, from + PAGE_SIZE - 1);
+
+      if (error || !data || data.length === 0) break;
+      rows.push(...(data as Translation[]));
+      if (data.length < PAGE_SIZE) break;
+    }
+
+    const byLocale: Record<string, Record<string, Translation>> = {};
+    for (const t of rows) {
+      if (!byLocale[t.locale_id]) byLocale[t.locale_id] = {};
+      byLocale[t.locale_id][getTranslatableKey(t)] = t;
+    }
+    return byLocale;
+  },
+  ['page-renderer-all-translations-draft'],
+  { tags: ['all-pages'], revalidate: false }
+);
+
+/**
+ * Build a map of localeId → full URL path for the language switcher.
+ * Uses pre-fetched translations for all locales to correctly resolve
+ * translated CMS item slugs, folder slugs, and page slugs.
+ */
+async function computeLocalizedPageUrls(
+  page: Page,
+  folders: PageFolder[],
+  collectionItem: CollectionItemWithValues | undefined,
+  collectionFields: CollectionField[],
+  availableLocales: Locale[],
+  isPreview: boolean,
+  isPublished: boolean
+): Promise<Record<string, string>> {
+  const urls: Record<string, string> = {};
+  if (availableLocales.length <= 1) return urls;
+
+  let translationsByLocale: Record<string, Record<string, Translation>>;
+  try {
+    translationsByLocale = isPublished
+      ? await getCachedAllPublishedTranslationsByLocale()
+      : await getCachedAllDraftTranslationsByLocale();
+  } catch (err) {
+    console.error('[computeLocalizedPageUrls] Failed to fetch translations:', err);
+    return urls;
+  }
+
+  const slugField = collectionFields.find(f => f.key === 'slug');
+  const slugFieldId = slugField?.id;
+  const itemId = collectionItem?.id;
+
+  console.log('[computeLocalizedPageUrls] page.is_dynamic:', page.is_dynamic, 'itemId:', itemId, 'slugFieldId:', slugFieldId, 'locales:', availableLocales.map(l => l.code), 'published:', isPublished, 'preview:', isPreview);
+
+  for (const locale of availableLocales) {
+    const localeTrans = translationsByLocale[locale.id] || {};
+    console.log('[computeLocalizedPageUrls] locale:', locale.code, 'trans count:', Object.keys(localeTrans).length);
+    let url: string;
+
+    if (page.is_dynamic && itemId && slugFieldId) {
+      const slugKey = getTranslatableKey({
+        source_type: 'cms',
+        source_id: itemId,
+        content_key: slugFieldId,
+      });
+      const translatedSlug = localeTrans[slugKey]?.content_value
+        || collectionItem?.values[slugFieldId]
+        || null;
+      console.log('[computeLocalizedPageUrls] slugKey:', slugKey, 'translatedSlug:', translatedSlug, 'fallback:', collectionItem?.values?.[slugFieldId]);
+
+      url = buildLocalizedDynamicPageUrl(page, folders, translatedSlug, locale, localeTrans);
+    } else {
+      url = buildLocalizedSlugPath(page, folders, 'page', locale, localeTrans);
+    }
+    console.log('[computeLocalizedPageUrls] locale:', locale.code, 'url:', url);
+
+    if (isPreview && url && url !== '/') {
+      url = `/ycode/preview${url}`;
+    } else if (isPreview && url === '/') {
+      url = '/ycode/preview';
+    }
+
+    urls[locale.id] = url;
+  }
+
+  return urls;
+}
 
 /** Recursively collect all page link refs ({collection_item_id, page_id}) from a Tiptap JSON node.
  * Also descends into pre-resolved layers stored on embedded richTextComponent nodes. */
@@ -564,6 +701,12 @@ export default async function PageRenderer({
       )
       : undefined;
 
+  // Pre-compute localized URLs for the language switcher so CMS item slugs
+  // are correctly translated per locale (not just locale-code prefixed).
+  const localizedPageUrls = await computeLocalizedPageUrls(
+    page, folders, collectionItem, collectionFields, availableLocales, isPreview, usePublishedData
+  );
+
   return (
     <>
       {/* Global head code fallback when layout skips it (SKIP_SETUP mode) */}
@@ -726,6 +869,7 @@ export default async function PageRenderer({
           serverSettings={serverSettings}
           lcpCandidateLayerId={lcpCandidateLayerId}
           passwordProtection={is401Page ? passwordProtection : undefined}
+          localizedPageUrls={localizedPageUrls}
         />
 
         {/* Fallback hardcoded password form: only when the 401 page has no inline

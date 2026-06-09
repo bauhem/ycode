@@ -1,0 +1,177 @@
+- generic [active] [ref=e1]:
+  - main [ref=e2]:
+    - generic [ref=e4]:
+      - link "Image" [ref=e6] [cursor=pointer]:
+        - /url: /
+        - img "Image" [ref=e7]
+      - generic [ref=e8]:
+        - generic [ref=e11]:
+          - link "Services" [ref=e12] [cursor=pointer]:
+            - /url: /services
+          - img [ref=e14]
+        - generic [ref=e18]:
+          - link "Solutions" [ref=e19] [cursor=pointer]:
+            - /url: /solutions
+          - img [ref=e21]
+        - link "Contact" [ref=e26] [cursor=pointer]:
+          - /url: /contact
+        - link "Blog" [ref=e30] [cursor=pointer]:
+          - /url: /blog
+        - link "À propos" [ref=e34] [cursor=pointer]:
+          - /url: /a-propos
+        - link "Réalisations" [ref=e38] [cursor=pointer]:
+          - /url: /realisations
+        - generic [ref=e39]:
+          - generic [ref=e40]: Français
+          - img [ref=e42]
+          - combobox "Select language" [ref=e44] [cursor=pointer]:
+            - option "English"
+            - option "Français" [selected]
+        - button "Analyser mon site" [ref=e45]:
+          - generic [ref=e46]: Analyser mon site
+    - generic [ref=e49]:
+      - generic [ref=e50]:
+        - heading "OSE Média | marque culturelle, plateforme média et découvrabilité événementielle" [level=1] [ref=e89]
+        - paragraph [ref=e91]: Création de marque, direction visuelle, stratégie de contenu et développement d’une plateforme web d’envergure pour le Conseil de la culture de Québec. Un écosystème de 6 000+ événements et 15 000+ représentations pour la découvrabilité culturelle au Québec.
+        - generic [ref=e92]:
+          - img "Image description" [ref=e94]
+          - img "Image description" [ref=e96]
+          - img "Image description" [ref=e98]
+          - img "Image description" [ref=e100]
+      - generic [ref=e101]:
+        - generic [ref=e102]:
+          - generic [ref=e103]: "Client :"
+          - generic [ref=e104]: OSE Média
+        - generic [ref=e105]:
+          - generic [ref=e106]: "Focus :"
+          - generic [ref=e107]: Branding, structure et contenu
+        - generic [ref=e108]:
+          - paragraph [ref=e109]: "SERVICE :"
+          - paragraph [ref=e110]: Clarifier votre offre et votre marque
+    - generic [ref=e54]:
+      - generic [ref=e112]: Détails du projet
+      - generic [ref=e114]:
+        - paragraph [ref=e115]:
+          - strong [ref=e116]: 100 000 $
+          - text: "de budget initial, une cinquantaine de sources de données, des milliers d’événements à indexer : quand le Conseil de la culture des régions de Québec et Chaudière-Appalaches nous a contactés en 2021, il ne cherchait pas un simple site web, mais un véritable écosystème numérique capable de propulser la découvrabilité culturelle au Québec."
+        - paragraph [ref=e117]: "Bauhem a accompagné le projet dès ses fondations : création et élaboration de la marque OSE Média, direction visuelle, structure éditoriale, architecture de contenu, design d’interface, développement web, intégration, hébergement et maintenance. Le mandat combinait donc marque, système web et découvrabilité — exactement le type de projet où le design seul ne suffit pas."
+        - paragraph [ref=e118]
+        - img "Mockup de carte de visite" [ref=e119]
+        - heading "Créer une marque culturelle crédible et exploitable" [level=2] [ref=e120]
+        - paragraph [ref=e121]: "OSE Média devait remplacer et moderniser la présence de Québec Spectacles sans perdre la confiance déjà établie auprès des diffuseurs, artistes, organismes culturels et publics régionaux. Le travail de marque visait à créer une identité plus actuelle, plus éditoriale et plus flexible : une marque capable de soutenir à la fois un média culturel, un agenda d’événements, des contenus thématiques, des infolettres et des campagnes de promotion."
+        - paragraph [ref=e122]: "Bauhem a participé à la création et à l’élaboration de cette marque : positionnement, direction visuelle, logique d’usage, structure des contenus et expérience numérique. L’objectif était de rendre la plateforme immédiatement reconnaissable, mais surtout facile à faire vivre par une équipe éditoriale et culturelle au quotidien."
+        - paragraph [ref=e123]
+        - img "Artboard Project 6" [ref=e124]
+        - heading "Une architecture décentralisée par conception" [level=2] [ref=e125]
+        - paragraph [ref=e126]:
+          - text: "Le principe fondateur du projet :"
+          - emphasis [ref=e127]: contenu unique, affichages multiples
+          - text: . La base de données événementielle provient de La Vitrine culturelle de Montréal, avec plus de 50 sources de données. Les profils consommateurs de Dialog Insight alimentent les infolettres, et le site web agit comme la vitrine publique de cet écosystème interconnecté.
+        - paragraph [ref=e128]: "Bauhem a conçu et développé la plateforme web de A à Z pour que la marque, les contenus, les événements, les lieux et les canaux de diffusion puissent fonctionner ensemble. Ce n’était pas seulement une refonte visuelle : c’était une infrastructure culturelle conçue pour publier, organiser, indexer et redistribuer l’information."
+        - img "Mockup Billboard Artboard" [ref=e129]
+        - heading "6 045 événements. 15 469 représentations. 182 lieux." [level=2] [ref=e130]
+        - paragraph [ref=e131]: "L’ampleur du projet se mesure en chiffres :"
+        - list [ref=e132]:
+          - listitem [ref=e133]:
+            - strong [ref=e134]: 6 045 événements
+            - text: "indexés avec données structurées Schema.org : Event, Organization et Person."
+          - listitem [ref=e135]:
+            - strong [ref=e136]: 15 469 représentations
+            - text: — chaque représentation dispose de sa propre URL et fiche dédiée.
+          - listitem [ref=e137]:
+            - strong [ref=e138]: 182 lieux de diffusion
+            - text: cartographiés, avec fiches enrichies et données d’accessibilité.
+          - listitem [ref=e139]:
+            - strong [ref=e140]: 269 disciplines
+            - text: artistiques couvertes — du théâtre aux métiers d’art, en passant par le cinéma.
+          - listitem [ref=e141]:
+            - strong [ref=e142]: 9 471 assets médias
+            - text: ": images, vidéos et bandes-annonces d’événements."
+        - img "rectangle-flag-mockup-on-black-pole-67328c486469332d0fe115dc" [ref=e143]
+        - heading "La découvrabilité comme fondation, pas comme add-on" [level=2] [ref=e144]
+        - paragraph [ref=e145]:
+          - text: Dès le cahier des charges, le référencement était stratégique — pas une préoccupation de dernière minute. Chaque événement, lieu et artiste est enrichi de métadonnées
+          - strong [ref=e146]: JSON-LD Schema.org
+          - text: "avec des gabarits Event, Organization, Person, Article et ItemList. Les pages d’événements passés sont conservées intentionnellement : chaque URL reste un point d’entrée SEO actif, chaque fiche contribue au maillage interne du site."
+        - paragraph [ref=e147]:
+          - text: Pour l’
+          - strong [ref=e148]: AEO
+          - text: et le
+          - strong [ref=e149]: GEO
+          - text: ", la structure des données permet aux moteurs de réponse et aux agents conversationnels d’extraire facilement les informations importantes : dates, horaires, lieux, disciplines, prix et liens de billetterie. Les pages sont conçues pour être interprétables autant par Google que par les futurs assistants IA."
+        - paragraph [ref=e150]: "Résultat concret : les événements OSE Média peuvent être compris comme des données structurées, pas seulement comme du contenu éditorial. C’est ce qui rend la plateforme plus durable et plus facile à redistribuer dans différents contextes numériques."
+        - heading "Un CMS pensé pour une équipe terrain" [level=2] [ref=e151]
+        - paragraph [ref=e152]:
+          - text: "L’équipe du Conseil de la culture gère le contenu éditorial en autonomie via DatoCMS. Articles, dossiers thématiques, listes d’invités, sélections culturelles :"
+          - strong [ref=e153]: 51 pages CMS
+          - text: "sont administrées sans friction technique. La séparation des couches données et présentation garantit que les contenus éditoriaux peuvent circuler vers d’autres canaux : infolettres, réseaux sociaux et API partenaires."
+        - heading "Stack technique" [level=2] [ref=e154]
+        - paragraph [ref=e155]:
+          - strong [ref=e156]: "Frontend :"
+          - text: Gridsome, Vue 2, génération statique avec données dynamiques.
+        - paragraph [ref=e157]:
+          - strong [ref=e158]: "CMS headless :"
+          - text: DatoCMS — modèles de contenu pour événements, représentations, lieux, disciplines, contenus, pages et offres.
+        - paragraph [ref=e159]:
+          - strong [ref=e160]: "Données externes :"
+          - text: API La Vitrine, Airtable et QuickWork pour l’automatisation.
+        - paragraph [ref=e161]:
+          - strong [ref=e162]: "Média :"
+          - text: Cloudinary pour l’optimisation et la distribution d’images.
+        - paragraph [ref=e163]:
+          - strong [ref=e164]: "Déploiement :"
+          - text: Netlify, previews et déploiements atomiques.
+        - heading "Résultats" [level=2] [ref=e165]
+        - list [ref=e166]:
+          - listitem [ref=e167]:
+            - strong [ref=e168]: Marque OSE Média créée et structurée
+            - text: pour soutenir un média culturel régional, un agenda événementiel et des contenus éditoriaux.
+          - listitem [ref=e169]:
+            - strong [ref=e170]: Lancement Q1 2022
+            - text: — remplacement réussi de la plateforme Québec Spectacles, active depuis 2015.
+          - listitem [ref=e171]:
+            - strong [ref=e172]: Architecture pérenne
+            - text: conçue pour évoluer sur plusieurs années, avec maintenance continue assurée par Bauhem.
+          - listitem [ref=e173]:
+            - strong [ref=e174]: Découvrabilité structurée
+            - text: ": SEO traditionnel, Schema.org enrichi et fondations pour l’ère AEO/GEO."
+          - listitem [ref=e175]:
+            - strong [ref=e176]: Autonomie éditoriale
+            - text: pour l’équipe du Conseil, sans dépendance technique au quotidien.
+        - paragraph [ref=e177]
+        - generic [ref=e179]:
+          - generic [ref=e180]:
+            - paragraph [ref=e181]: À explorer
+            - heading "Liens utiles autour de ce projet" [level=1] [ref=e182]
+            - paragraph [ref=e183]: Ces ressources permettent de comprendre les services, solutions ou contenus liés à cette réalisation.
+          - generic [ref=e184]:
+            - link "Service Rendre votre entreprise découvrable Clarifier la marque, le message et l’architecture de contenu. →" [ref=e185] [cursor=pointer]:
+              - /url: /services/seo-aeo-decouvrabilite
+              - paragraph [ref=e186]: Service
+              - heading "Rendre votre entreprise découvrable" [level=1] [ref=e187]
+              - paragraph [ref=e188]: Clarifier la marque, le message et l’architecture de contenu.
+              - paragraph [ref=e189]: →
+            - link "Solution Sites structurés pour la découvrabilité Structurer les pages et contenus pour être mieux compris. →" [ref=e190] [cursor=pointer]:
+              - /url: /solutions/sites-structures-decouvrabilite
+              - paragraph [ref=e191]: Solution
+              - heading "Sites structurés pour la découvrabilité" [level=1] [ref=e192]
+              - paragraph [ref=e193]: Structurer les pages et contenus pour être mieux compris.
+              - paragraph [ref=e194]: →
+            - link "Article Découvrabilité IA Comprendre comment rendre un site plus interprétable. →" [ref=e195] [cursor=pointer]:
+              - /url: "/blog/{slug}"
+              - paragraph [ref=e196]: Article
+              - heading "Découvrabilité IA" [level=1] [ref=e197]
+              - paragraph [ref=e198]: Comprendre comment rendre un site plus interprétable.
+              - paragraph [ref=e199]: →
+    - generic [ref=e61]:
+      - generic [ref=e67] [cursor=pointer]:
+        - generic [ref=e68]: Discutons de votre projet
+        - img "Image" [ref=e69]
+      - img "Image" [ref=e71]
+  - link "This website was built using Ycode." [ref=e74] [cursor=pointer]:
+    - /url: https://ycode.com
+    - img [ref=e75]
+    - img [ref=e77]
+  - button "Open Next.js Dev Tools" [ref=e84] [cursor=pointer]:
+    - img [ref=e85]
+  - alert [ref=e200]

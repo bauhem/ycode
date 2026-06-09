@@ -77,6 +77,7 @@ export function generatePageMetadataHash(pageData: {
   is_index: boolean;
   is_dynamic: boolean;
   error_page: number | null;
+  order?: number | null;
 }): string {
   return generateContentHash({
     name: pageData.name,
@@ -85,6 +86,7 @@ export function generatePageMetadataHash(pageData: {
     is_index: pageData.is_index,
     is_dynamic: pageData.is_dynamic,
     error_page: pageData.error_page,
+    order: pageData.order ?? 0,
   });
 }
 
