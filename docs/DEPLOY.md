@@ -300,7 +300,7 @@ args = [
 ]
 ```
 
-Pour Bauhem localement, si `https://supabase.bauhem.com` est protege par Basic Auth, utiliser l'URL Kong directe:
+Pour Bauhem localement, si `https://supabase.<DOMAIN>` est protege par Basic Auth, utiliser l'URL Kong directe:
 
 ```toml
 "--url", "http://51.222.143.231:8000"
@@ -312,7 +312,7 @@ Tests attendus:
 curl -I http://51.222.143.231:8000/rest/v1/
 # 401 avec WWW-Authenticate: Key
 
-curl -I https://supabase.bauhem.com/rest/v1/
+curl -I https://supabase.<DOMAIN>/rest/v1/
 # Si 401 avec WWW-Authenticate: Basic, ne pas utiliser cette URL pour le MCP.
 ```
 
@@ -370,8 +370,8 @@ Etat verifie le 2026-05-19:
 - Cle locale fonctionnelle: `~/.ssh/vps_ycode`.
 - Docker Supabase tourne sur le VPS.
 - Kong API direct: `http://51.222.143.231:8000`.
-- Domaine public: `https://supabase.bauhem.com`.
-- Attention: `https://supabase.bauhem.com` retourne une Basic Auth et ne doit pas etre utilise comme URL MCP tant que cette protection couvre l'API.
+- Domaine public: `https://supabase.<DOMAIN>`.
+- Attention: `https://supabase.<DOMAIN>` retourne une Basic Auth et ne doit pas etre utilise comme URL MCP tant que cette protection couvre l'API.
 - URL MCP Supabase locale recommandee pour l'instant: `http://51.222.143.231:8000`.
 - DB directe verifiee: `51.222.143.231:5433` avec user `supabase_admin`.
 
@@ -404,7 +404,7 @@ ssh -i ~/.ssh/vps_ycode ubuntu@51.222.143.231 \
 curl -I http://51.222.143.231:8000/rest/v1/
 
 # Verifier que le domaine public n'est pas adapte au MCP s'il reste en Basic Auth
-curl -I https://supabase.bauhem.com/rest/v1/
+curl -I https://supabase.<DOMAIN>/rest/v1/
 
 # Dev local Ycode
 npm run dev

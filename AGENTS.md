@@ -753,7 +753,7 @@ These notes were observed during prior imports and may be fixed or partially mit
 ## 🔧 Environment
 
 - **Local dev**: `npm run dev` (starts SSH tunnel to VPS + Next.js on port 3002)
-- **Supabase**: Self-hosted at `https://supabase.bauhem.com` (running on VPS `51.222.143.231` via Docker)
+- **Supabase**: Self-hosted at `https://supabase.<DOMAIN>` (running on VPS via Docker)
 - **Admin/Builder**: `https://bauhem.com` (hosted on Netlify, connected to the VPS Supabase database)
 - **MCP Bridge**: `scripts/mcp-ycode-bridge.js` (connects local agents to the admin MCP server)
 
