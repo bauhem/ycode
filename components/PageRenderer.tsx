@@ -109,6 +109,31 @@ const getCachedAllDraftTranslationsByLocale = unstable_cache(
 );
 
 /**
+ * Fetch the original (default-locale) slug value for a collection item.
+ * `collectionItem.values` may have been enhanced with translations by
+ * `applyCmsTranslations` — this bypasses that and reads the raw value.
+ */
+async function fetchOriginalItemSlug(
+  itemId: string,
+  slugFieldId: string,
+  isPublished: boolean
+): Promise<string | null> {
+  const supabase = await getSupabaseAdmin();
+  if (!supabase) return null;
+
+  const { data } = await supabase
+    .from('collection_item_values')
+    .select('value')
+    .eq('item_id', itemId)
+    .eq('field_id', slugFieldId)
+    .eq('is_published', isPublished)
+    .is('deleted_at', null)
+    .maybeSingle();
+
+  return data?.value || null;
+}
+
+/**
  * Build a map of localeId → full URL path for the language switcher.
  * Uses pre-fetched translations for all locales to correctly resolve
  * translated CMS item slugs, folder slugs, and page slugs.
@@ -149,8 +174,13 @@ async function computeLocalizedPageUrls(
         source_id: itemId,
         content_key: slugFieldId,
       });
-      const translatedSlug = localeTrans[slugKey]?.content_value
-        || collectionItem?.values[slugFieldId]
+      // The translation has the correct slug for this locale.
+      // `collectionItem.values` may have been enhanced by applyCmsTranslations
+      // and carry the CURRENT locale's slug — unreliable for other locales.
+      // Fall back to the raw DB value (default-locale slug) as last resort.
+      const translatedSlug: string | null =
+        localeTrans[slugKey]?.content_value
+        || await fetchOriginalItemSlug(itemId, slugFieldId, isPublished)
         || null;
 
       url = buildLocalizedDynamicPageUrl(page, folders, translatedSlug, locale, localeTrans);
