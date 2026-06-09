@@ -130,8 +130,7 @@ async function computeLocalizedPageUrls(
     translationsByLocale = isPublished
       ? await getCachedAllPublishedTranslationsByLocale()
       : await getCachedAllDraftTranslationsByLocale();
-  } catch (err) {
-    console.error('[computeLocalizedPageUrls] Failed to fetch translations:', err);
+  } catch {
     return urls;
   }
 
@@ -139,14 +138,12 @@ async function computeLocalizedPageUrls(
   const slugFieldId = slugField?.id;
   const itemId = collectionItem?.id;
 
-  console.log('[computeLocalizedPageUrls] page.is_dynamic:', page.is_dynamic, 'itemId:', itemId, 'slugFieldId:', slugFieldId, 'locales:', availableLocales.map(l => l.code), 'published:', isPublished, 'preview:', isPreview);
-
   for (const locale of availableLocales) {
     const localeTrans = translationsByLocale[locale.id] || {};
-    console.log('[computeLocalizedPageUrls] locale:', locale.code, 'trans count:', Object.keys(localeTrans).length);
     let url: string;
 
     if (page.is_dynamic && itemId && slugFieldId) {
+      // Look up the CMS item slug in the target locale's translations.
       const slugKey = getTranslatableKey({
         source_type: 'cms',
         source_id: itemId,
@@ -155,13 +152,11 @@ async function computeLocalizedPageUrls(
       const translatedSlug = localeTrans[slugKey]?.content_value
         || collectionItem?.values[slugFieldId]
         || null;
-      console.log('[computeLocalizedPageUrls] slugKey:', slugKey, 'translatedSlug:', translatedSlug, 'fallback:', collectionItem?.values?.[slugFieldId]);
 
       url = buildLocalizedDynamicPageUrl(page, folders, translatedSlug, locale, localeTrans);
     } else {
       url = buildLocalizedSlugPath(page, folders, 'page', locale, localeTrans);
     }
-    console.log('[computeLocalizedPageUrls] locale:', locale.code, 'url:', url);
 
     if (isPreview && url && url !== '/') {
       url = `/ycode/preview${url}`;
