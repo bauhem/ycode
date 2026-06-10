@@ -1,20 +1,42 @@
 import Link from 'next/link';
-import { getSettingByKey } from '@/lib/repositories/settingsRepository';
-import YcodeBadge from '@/components/YcodeBadge';
+import { fetchErrorPage } from '@/lib/page-fetcher';
+import { fetchGlobalPageSettings } from '@/lib/generate-page-metadata';
+import PageRenderer from '@/components/PageRenderer';
 
 /**
- * Default 404 page fallback
- * Shown when no custom 404 error page exists in the database
+ * Custom 404 page with proper HTTP 404 status.
+ * Fetches the custom 404 error page from the database.
  */
 export default async function NotFound() {
-  let showBadge = true;
+  let pageData = null;
+  let globalSettings = null;
+
   try {
-    const setting = await getSettingByKey('ycode_badge');
-    showBadge = setting ?? true;
+    [pageData, globalSettings] = await Promise.all([
+      fetchErrorPage(404, true),
+      fetchGlobalPageSettings(),
+    ]);
   } catch {
-    // Supabase not configured
+    // DB not available, render fallback below
   }
 
+  if (pageData && globalSettings) {
+    const { page, pageLayers, components, generatedCss } = pageData;
+    return (
+      <PageRenderer
+        page={page}
+        layers={pageLayers?.layers || []}
+        components={components}
+        generatedCss={[generatedCss, globalSettings.publishedCss].filter(Boolean).join('\n') || undefined}
+        colorVariablesCss={globalSettings.colorVariablesCss || undefined}
+        globalCustomCodeHead={globalSettings.globalCustomCodeHead}
+        globalCustomCodeBody={globalSettings.globalCustomCodeBody}
+        ycodeBadge={globalSettings.ycodeBadge}
+      />
+    );
+  }
+
+  // Fallback when DB unavailable
   return (
     <div className="min-h-screen flex items-center justify-center bg-white">
       <div className="text-center max-w-md px-4">
@@ -30,7 +52,6 @@ export default async function NotFound() {
           Go Home
         </Link>
       </div>
-      {showBadge && <YcodeBadge />}
     </div>
   );
 }

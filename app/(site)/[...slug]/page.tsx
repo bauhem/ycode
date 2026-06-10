@@ -291,28 +291,8 @@ export default async function Page({ params }: PageProps) {
     fetchCachedGlobalSettings(),
   ]);
 
-  // If page not found, try to show custom 404 error page
+  // If page not found, trigger Next.js 404 (uses not-found.tsx)
   if (!data) {
-    const errorPageData = await fetchCachedErrorPage(404);
-
-    if (errorPageData) {
-      const { page: errorPage, pageLayers: errorPageLayers, components: errorComponents } = errorPageData;
-
-      return (
-        <PageRenderer
-          page={errorPage}
-          layers={errorPageLayers.layers || []}
-          components={errorComponents}
-          generatedCss={globalSettings.publishedCss || undefined}
-          colorVariablesCss={globalSettings.colorVariablesCss || undefined}
-          globalCustomCodeHead={globalSettings.globalCustomCodeHead}
-          globalCustomCodeBody={globalSettings.globalCustomCodeBody}
-          ycodeBadge={globalSettings.ycodeBadge}
-        />
-      );
-    }
-
-    // No custom 404 page, use default Next.js 404
     notFound();
   }
 

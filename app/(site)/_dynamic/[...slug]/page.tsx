@@ -62,22 +62,6 @@ export default async function DynamicSlugPage({ params, searchParams }: DynamicS
   ]);
 
   if (!data) {
-    const errorPageData = await fetchErrorPage(404, true);
-    if (errorPageData) {
-      const { page, pageLayers, components } = errorPageData;
-
-      return (
-        <PageRenderer
-          page={page}
-          layers={pageLayers.layers || []}
-          components={components}
-          generatedCss={globalSettings.publishedCss || undefined}
-          colorVariablesCss={globalSettings.colorVariablesCss || undefined}
-          ycodeBadge={globalSettings.ycodeBadge}
-        />
-      );
-    }
-
     notFound();
   }
 

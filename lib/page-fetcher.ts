@@ -338,6 +338,7 @@ async function getCollectionItemBySlug(
     }
 
     // Fall back to original slug lookup (no translation or translation not found)
+    let itemId = null;
     const slugCandidates = getSlugLookupCandidates(slugValue);
     const { data: valueData, error: valueError } = await supabase
       .from('collection_item_values')
@@ -349,7 +350,28 @@ async function getCollectionItemBySlug(
       .limit(1)
       .single();
 
-    if (valueError || !valueData) {
+    if (!valueError && valueData) {
+      itemId = valueData.item_id;
+    }
+
+    // If direct lookup failed but we have translations (and no specific locale was set),
+    // try a cross-locale fallback: the slug might be a translation for a non-default locale
+    if (!itemId && translations && collectionFields && (!locale || locale.is_default)) {
+      const slugField = collectionFields.find(f => f.id === slugFieldId);
+      if (slugField) {
+        const contentKey = slugField.key
+          ? `field:key:${slugField.key}`
+          : `field:id:${slugField.id}`;
+        for (const [translationKey, translation] of Object.entries(translations)) {
+          if (translation.content_value === slugValue && translationKey.endsWith(contentKey)) {
+            itemId = translation.source_id;
+            break;
+          }
+        }
+      }
+    }
+
+    if (!itemId) {
       return null;
     }
 
@@ -357,7 +379,7 @@ async function getCollectionItemBySlug(
     const { data: item, error: itemError } = await supabase
       .from('collection_items')
       .select('*')
-      .eq('id', valueData.item_id)
+      .eq('id', itemId)
       .eq('collection_id', collectionId)
       .eq('is_published', isPublished)
       .is('deleted_at', null)
