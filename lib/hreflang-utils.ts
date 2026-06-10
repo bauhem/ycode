@@ -75,7 +75,13 @@ function buildDynamicLocalizedUrl(
     source_id: dynamicSlug.itemId,
     content_key: dynamicSlug.fieldId,
   });
-  const translatedSlug = translations?.[translatedSlugKey]?.content_value || dynamicSlug.defaultValue;
+  const translatedSlug = translations?.[translatedSlugKey]?.content_value
+    || Object.values(translations || {}).find(translation => (
+      translation.source_type === 'cms'
+      && translation.source_id === dynamicSlug.itemId
+      && translation.content_key === 'field:key:slug'
+    ))?.content_value
+    || dynamicSlug.defaultValue;
 
   const localizedItemPath = localizedFolderPath
     ? `${localizedFolderPath}/${translatedSlug}`
@@ -127,7 +133,7 @@ export function buildPageHreflangAlternates(params: {
     const translations = translationsByLocale.get(locale.id);
     const href = dynamicSlug
       ? buildDynamicLocalizedUrl(page, folders, baseUrl, locale, translations, dynamicSlug)
-      : `${baseUrl}${buildLocalizedSlugPath(page, folders, 'page', locale, translations)}`;
+      : normalizeAbsoluteUrl(`${baseUrl}${buildLocalizedSlugPath(page, folders, 'page', locale, translations)}`);
     alternates.push({ hreflang: locale.code, href });
   }
 
