@@ -15,6 +15,18 @@ export interface HreflangAlternate {
   href: string;
 }
 
+function normalizeAbsoluteUrl(url: string): string {
+  try {
+    const parsed = new URL(url);
+    if (parsed.pathname !== '/') {
+      parsed.pathname = parsed.pathname.replace(/\/+$/, '');
+    }
+    return parsed.toString();
+  } catch {
+    return url;
+  }
+}
+
 /**
  * Slug context for a dynamic (CMS-driven) page. Required to resolve the
  * translated item slug per locale.
@@ -37,7 +49,7 @@ function buildDynamicDefaultUrl(
 ): string {
   const folderPath = buildSlugPath(page, folders, 'page', '').replace(/\/$/, '');
   const itemPath = folderPath ? `${folderPath}/${slugValue}` : `/${slugValue}`;
-  return `${baseUrl}${itemPath}`;
+  return normalizeAbsoluteUrl(`${baseUrl}${itemPath}`);
 }
 
 /** Build a localized absolute URL for a dynamic item in a non-default locale. */
@@ -69,7 +81,7 @@ function buildDynamicLocalizedUrl(
     ? `${localizedFolderPath}/${translatedSlug}`
     : `/${locale.code}/${translatedSlug}`;
 
-  return `${baseUrl}${localizedItemPath}`;
+  return normalizeAbsoluteUrl(`${baseUrl}${localizedItemPath}`);
 }
 
 /**
@@ -103,7 +115,7 @@ export function buildPageHreflangAlternates(params: {
 
   const defaultUrl = dynamicSlug
     ? buildDynamicDefaultUrl(page, folders, baseUrl, dynamicSlug.defaultValue)
-    : `${baseUrl}${buildSlugPath(page, folders, 'page')}`;
+    : normalizeAbsoluteUrl(`${baseUrl}${buildSlugPath(page, folders, 'page')}`);
 
   const alternates: HreflangAlternate[] = [];
 
