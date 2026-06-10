@@ -206,10 +206,14 @@ export async function proxy(request: NextRequest) {
     }
   }
 
+  const isAssetProxyRoute = pathname.startsWith('/a/');
+  const isStaticFile = /\.[a-zA-Z0-9]+$/.test(pathname);
   const isPublicPage = !pathname.startsWith('/ycode')
     && !pathname.startsWith('/_next')
     && !pathname.startsWith('/api')
-    && !pathname.startsWith('/dynamic');
+    && !pathname.startsWith('/dynamic')
+    && !isAssetProxyRoute
+    && !isStaticFile;
   const hasPaginationParams = Array.from(request.nextUrl.searchParams.keys())
     .some((key) => key.startsWith('p_'));
 
