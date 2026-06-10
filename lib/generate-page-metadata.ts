@@ -329,6 +329,8 @@ export async function generatePageMetadata(
   // favicon and web clip render before the user publishes.
   const seoSettings = options.globalSeoSettings || await fetchGlobalPageSettings(isPreview);
 
+  let canonicalUrl: string | null = null;
+
   if (!isPreview) {
     siteBaseUrl = getSiteBaseUrl({
       globalCanonicalUrl: seoSettings.globalCanonicalUrl,
@@ -345,7 +347,7 @@ export async function generatePageMetadata(
     // Add canonical URL
     if (seoSettings.globalCanonicalUrl && pagePath !== undefined) {
       const canonicalBase = seoSettings.globalCanonicalUrl.replace(/\/$/, '');
-      const canonicalUrl = pagePath === '/' || pagePath === ''
+      canonicalUrl = pagePath === '/' || pagePath === ''
         ? canonicalBase
         : `${canonicalBase}${pagePath.startsWith('/') ? pagePath : '/' + pagePath}`;
 
@@ -404,6 +406,7 @@ export async function generatePageMetadata(
       metadata.openGraph = {
         title,
         description,
+        url: canonicalUrl || undefined,
         images: [
           {
             url: imageUrl,
