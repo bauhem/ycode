@@ -457,12 +457,14 @@ export function resolveCollectionLinkValue(
 
     let href: string;
 
-    // Handle dynamic pages with specific collection item
-    if (page.is_dynamic && linkValue.page.collection_item_id && collectionItemSlugs) {
+    // Dynamic page links must resolve to a concrete collection item.
+    // Returning the template URL (e.g. /blog/{slug}) creates crawlable broken links.
+    if (page.is_dynamic) {
+      if (!linkValue.page.collection_item_id || !collectionItemSlugs) return null;
       const itemSlug = collectionItemSlugs[linkValue.page.collection_item_id];
-      href = buildLocalizedDynamicPageUrl(page, folders, itemSlug || null, locale, translations || undefined);
+      if (!itemSlug) return null;
+      href = buildLocalizedDynamicPageUrl(page, folders, itemSlug, locale, translations || undefined);
     } else {
-      // Static page or dynamic page without specific item
       href = buildLocalizedSlugPath(page, folders, 'page', locale, translations || undefined);
     }
 
@@ -582,7 +584,9 @@ export function generateLinkHref(
                 break;
             }
 
-            href = buildLocalizedDynamicPageUrl(page, folders, itemSlug || null, locale, translations || undefined);
+            if (itemSlug) {
+              href = buildLocalizedDynamicPageUrl(page, folders, itemSlug, locale, translations || undefined);
+            }
           } else {
             // Static page or dynamic page without specific item
             href = buildLocalizedSlugPath(page, folders, 'page', locale, translations || undefined);

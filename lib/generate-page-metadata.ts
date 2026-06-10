@@ -15,6 +15,7 @@ import { getSettingsByKeys } from '@/lib/repositories/settingsRepository';
 import { getAssetById } from '@/lib/repositories/assetRepository';
 import { getAllLocales } from '@/lib/repositories/localeRepository';
 import { getAllPublishedPageFolders } from '@/lib/repositories/pageFolderRepository';
+import { getItemWithValues } from '@/lib/repositories/collectionItemRepository';
 import { getTranslationsByLocale } from '@/lib/repositories/translationRepository';
 import { buildSvgDataUrl, getAssetProxyUrl } from '@/lib/asset-utils';
 import { generateColorVariablesCss } from '@/lib/repositories/colorVariableRepository';
@@ -223,13 +224,17 @@ async function buildHreflangLanguages(
     return null;
   }
 
-  // Dynamic pages need the collection item's slug to resolve per-locale URLs.
+  // Dynamic pages need the collection item's original default-locale slug to resolve per-locale URLs.
+  // collectionItem.values may already contain translated values on localized routes, so fetch the raw published item.
   const slugFieldId = page.settings?.cms?.slug_field_id;
+  const rawCollectionItem = page.is_dynamic && collectionItem && slugFieldId
+    ? await getItemWithValues(collectionItem.id, true)
+    : null;
   const dynamicSlug = page.is_dynamic && collectionItem && slugFieldId
     ? {
       itemId: collectionItem.id,
       fieldId: slugFieldId,
-      defaultValue: collectionItem.values?.[slugFieldId] || '',
+      defaultValue: rawCollectionItem?.values?.[slugFieldId] || collectionItem.values?.[slugFieldId] || '',
     }
     : null;
 
