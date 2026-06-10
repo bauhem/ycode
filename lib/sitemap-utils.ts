@@ -152,14 +152,14 @@ export function generateSitemapUrls(
     itemValues: Map<string, Map<string, string>>;
   }>
 ): SitemapUrl[] {
-  const urls: SitemapUrl[] = [];
+  const baseUrls: SitemapUrl[] = [];
 
   for (const page of pages) {
     if (page.is_dynamic && page.settings?.cms) {
       // Dynamic page - generate URLs for each collection item
       const data = dynamicPageData.get(page.id);
       if (data) {
-        urls.push(...buildDynamicPageUrls(
+        baseUrls.push(...buildDynamicPageUrls(
           page,
           folders,
           baseUrl,
@@ -173,7 +173,7 @@ export function generateSitemapUrls(
       }
     } else {
       // Static page
-      urls.push(...buildStaticPageUrls(
+      baseUrls.push(...buildStaticPageUrls(
         page,
         folders,
         baseUrl,
@@ -184,7 +184,22 @@ export function generateSitemapUrls(
     }
   }
 
-  return urls;
+  const urlsByLoc = new Map<string, SitemapUrl>();
+  for (const url of baseUrls) {
+    urlsByLoc.set(url.loc, url);
+    for (const alternate of url.alternates || []) {
+      if (alternate.hreflang === 'x-default') continue;
+      if (urlsByLoc.has(alternate.href)) continue;
+      urlsByLoc.set(alternate.href, {
+        loc: alternate.href,
+        lastmod: url.lastmod,
+        changefreq: url.changefreq,
+        alternates: url.alternates,
+      });
+    }
+  }
+
+  return Array.from(urlsByLoc.values());
 }
 
 /**
