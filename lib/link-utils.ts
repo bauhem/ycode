@@ -7,6 +7,7 @@ import type {
   DynamicTextVariable,
   CollectionLinkValue,
   CollectionFieldType,
+  Translation,
 } from '@/types';
 import { buildLocalizedSlugPath, buildLocalizedDynamicPageUrl } from '@/lib/page-utils';
 import { isAssetFieldType, isVirtualAssetField } from '@/lib/collection-field-utils';
@@ -211,6 +212,24 @@ export const COLLECTION_ITEM_KEYWORDS = {
 export type CollectionItemKeyword = typeof COLLECTION_ITEM_KEYWORDS[keyof typeof COLLECTION_ITEM_KEYWORDS];
 
 const KEYWORD_VALUES = new Set<string>(Object.values(COLLECTION_ITEM_KEYWORDS));
+
+function getLocalizedCollectionSlug(
+  itemId: string,
+  defaultSlug: string | undefined,
+  locale?: Locale | null,
+  translations?: Record<string, Translation> | null
+): string | undefined {
+  if (!itemId || !defaultSlug) return defaultSlug;
+  if (!locale || locale.is_default || !translations) return defaultSlug;
+
+  const translatedSlug = Object.values(translations).find(translation => (
+    translation.source_type === 'cms'
+    && translation.source_id === itemId
+    && translation.content_key === 'field:key:slug'
+  ))?.content_value;
+
+  return translatedSlug || defaultSlug;
+}
 
 /** Returns true when the value is one of the known dynamic-resolution keywords. */
 export function isCollectionItemKeyword(value: string | null | undefined): value is CollectionItemKeyword {
@@ -461,7 +480,12 @@ export function resolveCollectionLinkValue(
     // Returning the template URL (e.g. /blog/{slug}) creates crawlable broken links.
     if (page.is_dynamic) {
       if (!linkValue.page.collection_item_id || !collectionItemSlugs) return null;
-      const itemSlug = collectionItemSlugs[linkValue.page.collection_item_id];
+      const itemSlug = getLocalizedCollectionSlug(
+        linkValue.page.collection_item_id,
+        collectionItemSlugs[linkValue.page.collection_item_id],
+        locale,
+        translations
+      );
       if (!itemSlug) return null;
       href = buildLocalizedDynamicPageUrl(page, folders, itemSlug, locale, translations || undefined);
     } else {
@@ -548,14 +572,17 @@ export function generateLinkHref(
           // Check if this is a dynamic page with a specific collection item
           if (page.is_dynamic && linkSettings.page.collection_item_id && collectionItemSlugs) {
             let itemSlug: string | undefined;
+            let resolvedItemId: string | undefined;
 
             const itemKeyword = linkSettings.page.collection_item_id;
             switch (itemKeyword) {
               case COLLECTION_ITEM_KEYWORDS.CURRENT_PAGE:
-                itemSlug = pageCollectionItemId ? collectionItemSlugs[pageCollectionItemId] : undefined;
+                resolvedItemId = pageCollectionItemId;
+                itemSlug = resolvedItemId ? collectionItemSlugs[resolvedItemId] : undefined;
                 break;
               case COLLECTION_ITEM_KEYWORDS.CURRENT_COLLECTION:
-                itemSlug = collectionItemId ? collectionItemSlugs[collectionItemId] : undefined;
+                resolvedItemId = collectionItemId;
+                itemSlug = resolvedItemId ? collectionItemSlugs[resolvedItemId] : undefined;
                 break;
               case COLLECTION_ITEM_KEYWORDS.NEXT_ITEM:
               case COLLECTION_ITEM_KEYWORDS.PREVIOUS_ITEM: {
@@ -568,7 +595,8 @@ export function generateLinkHref(
                     const offset = itemKeyword === COLLECTION_ITEM_KEYWORDS.NEXT_ITEM ? 1 : -1;
                     const targetIndex = currentIndex + offset;
                     if (targetIndex >= 0 && targetIndex < pageCollectionSortedItemIds.length) {
-                      itemSlug = collectionItemSlugs[pageCollectionSortedItemIds[targetIndex]];
+                      resolvedItemId = pageCollectionSortedItemIds[targetIndex];
+                      itemSlug = collectionItemSlugs[resolvedItemId];
                     }
                   }
                 }
@@ -576,12 +604,17 @@ export function generateLinkHref(
               }
               default:
                 if (itemKeyword.startsWith(REF_PAGE_PREFIX) || itemKeyword.startsWith(REF_COLLECTION_PREFIX)) {
-                  const refItemId = resolveRefCollectionItemId(itemKeyword, pageCollectionItemData, collectionItemData);
-                  itemSlug = refItemId ? collectionItemSlugs[refItemId] : undefined;
+                  resolvedItemId = resolveRefCollectionItemId(itemKeyword, pageCollectionItemData, collectionItemData) || undefined;
+                  itemSlug = resolvedItemId ? collectionItemSlugs[resolvedItemId] : undefined;
                 } else {
+                  resolvedItemId = itemKeyword;
                   itemSlug = collectionItemSlugs[itemKeyword];
                 }
                 break;
+            }
+
+            if (resolvedItemId) {
+              itemSlug = getLocalizedCollectionSlug(resolvedItemId, itemSlug, locale, translations);
             }
 
             if (itemSlug) {

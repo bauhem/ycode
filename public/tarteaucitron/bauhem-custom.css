@@ -1,0 +1,193 @@
+<style>
+/* Tarteaucitron — Bauhem • Minimal, bottom-left card */
+
+/* ===== OVERLAY (désactivé pour bottom-left) ===== */
+#tarteaucitronRoot #tarteaucitronBack {
+  display: none !important;
+}
+
+/* ===== CARTE PRINCIPALE ===== */
+#tarteaucitronRoot #tarteaucitronAlertBig {
+  position: fixed !important;
+  bottom: 20px !important;
+  left: 20px !important;
+  top: auto !important;
+  right: auto !important;
+  width: auto !important;
+  max-width: 380px !important;
+  background: #ffffff !important;
+  border-radius: 14px !important;
+  box-shadow: 0 2px 24px rgba(0,0,0,0.10) !important;
+  padding: 18px 20px !important;
+  margin: 0 !important;
+  font-family: var(--font-sans, ui-sans-serif, system-ui, sans-serif) !important;
+  z-index: 100000 !important;
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 14px !important;
+}
+
+/* ===== TITRE ===== */
+#tarteaucitronRoot #tarteaucitronAlertBig .tarteaucitronH2 {
+  font-size: 15px !important;
+  font-weight: 600 !important;
+  color: #151515 !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  letter-spacing: -0.01em !important;
+  line-height: 1.3 !important;
+}
+
+/* ===== TEXTE ===== */
+#tarteaucitronRoot #tarteaucitronAlertBig #tarteaucitronDisclaimerAlert {
+  font-size: 13px !important;
+  font-weight: 400 !important;
+  color: rgba(0,0,0,0.55) !important;
+  line-height: 1.5 !important;
+  margin: 0 !important;
+  padding: 0 !important;
+}
+
+/* Lien */
+#tarteaucitronRoot .tarteaucitronSelfLink {
+  color: #151515 !important;
+  text-decoration: underline !important;
+  text-underline-offset: 2px !important;
+}
+
+/* ===== BOUTONS ===== */
+#tarteaucitronRoot #tarteaucitronAlertBig #tarteaucitronAlertBigBtns {
+  display: flex !important;
+  flex-wrap: wrap !important;
+  gap: 8px !important;
+  padding: 0 !important;
+  background: none !important;
+}
+
+#tarteaucitronRoot #tarteaucitronAlertBig .tarteaucitronCTAButton {
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  border-radius: 50px !important;
+  font-size: 13px !important;
+  font-weight: 500 !important;
+  padding: 8px 18px !important;
+  cursor: pointer !important;
+  text-decoration: none !important;
+  line-height: 1.2 !important;
+  letter-spacing: -0.01em !important;
+  border: 1px solid transparent !important;
+}
+
+/* Accepter */
+#tarteaucitronRoot .tarteaucitronAllow {
+  background: #000000 !important;
+  color: #ffffff !important;
+  border-color: #000000 !important;
+}
+#tarteaucitronRoot .tarteaucitronAllow:hover {
+  background: #333333 !important;
+}
+
+/* Refuser */
+#tarteaucitronRoot .tarteaucitronDeny {
+  background: transparent !important;
+  color: #151515 !important;
+  border-color: rgba(0,0,0,0.18) !important;
+}
+#tarteaucitronRoot .tarteaucitronDeny:hover {
+  background: rgba(0,0,0,0.04) !important;
+}
+
+/* Personnaliser */
+#tarteaucitronRoot #tarteaucitronAlertBig #tarteaucitronPersonalize {
+  background: transparent !important;
+  color: rgba(0,0,0,0.45) !important;
+  border: none !important;
+  font-weight: 400 !important;
+  font-size: 12px !important;
+  padding: 8px 12px !important;
+}
+#tarteaucitronRoot #tarteaucitronAlertBig #tarteaucitronPersonalize:hover {
+  color: #151515 !important;
+}
+
+/* ===== FERMER (X) ===== */
+#tarteaucitronRoot #tarteaucitronAlertBig #tarteaucitronCloseAlert {
+  position: absolute !important;
+  top: 10px !important;
+  right: 12px !important;
+  width: 20px !important;
+  height: 20px !important;
+  font-size: 14px !important;
+  color: rgba(0,0,0,0.3) !important;
+  background: none !important;
+  border: none !important;
+  padding: 0 !important;
+  cursor: pointer !important;
+  line-height: 1 !important;
+  text-decoration: none !important;
+}
+
+/* ===== PANNEAU PRÉFÉRENCES (modal centrée) ===== */
+#tarteaucitronRoot #tarteaucitron {
+  font-family: var(--font-sans, ui-sans-serif, system-ui, sans-serif) !important;
+  font-size: 14px !important;
+  border-radius: 14px !important;
+}
+#tarteaucitronRoot #tarteaucitron .tarteaucitronH2 {
+  font-size: 18px !important;
+  font-weight: 600 !important;
+  color: #151515 !important;
+}
+#tarteaucitronRoot #tarteaucitron .tarteaucitronH3 {
+  font-size: 15px !important;
+  font-weight: 600 !important;
+  color: #151515 !important;
+}
+#tarteaucitronRoot #tarteaucitron .tarteaucitronAllow,
+#tarteaucitronRoot #tarteaucitron .tarteaucitronDeny {
+  border-radius: 50px !important;
+  padding: 7px 16px !important;
+  font-size: 12px !important;
+}
+#tarteaucitronRoot #tarteaucitron .tarteaucitronLine {
+  border-bottom: 1px solid rgba(0,0,0,0.06) !important;
+  padding: 12px 0 !important;
+}
+#tarteaucitronRoot #tarteaucitronClosePanel {
+  color: rgba(0,0,0,0.4) !important;
+}
+
+/* ===== ICÔNE FLOTTANTE ===== */
+#tarteaucitronRoot #tarteaucitronAlertSmall {
+  background: #000000 !important;
+  border-radius: 8px !important;
+}
+
+/* ===== MOBILE: centré en bas ===== */
+@media (max-width: 520px) {
+  #tarteaucitronRoot #tarteaucitronAlertBig {
+    left: 10px !important;
+    right: 10px !important;
+    bottom: 10px !important;
+    max-width: none !important;
+    border-radius: 12px !important;
+    padding: 16px !important;
+    gap: 12px !important;
+  }
+  #tarteaucitronRoot #tarteaucitronAlertBig #tarteaucitronAlertBigBtns {
+    width: 100% !important;
+  }
+  #tarteaucitronRoot #tarteaucitronAlertBig .tarteaucitronAllow,
+  #tarteaucitronRoot #tarteaucitronAlertBig .tarteaucitronDeny {
+    flex: 1 !important;
+    text-align: center !important;
+  }
+  #tarteaucitronRoot #tarteaucitronAlertBig #tarteaucitronPersonalize {
+    order: 99 !important;
+    width: 100% !important;
+    text-align: center !important;
+  }
+}
+</style>

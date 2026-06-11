@@ -1,0 +1,72 @@
+<!-- Tarteaucitron — Gestionnaire de consentement RGPD / Loi 25 -->
+<script src="https://cdn.jsdelivr.net/npm/tarteaucitronjs@1.33.0/tarteaucitron.min.js"></script>
+
+<script type="text/javascript">
+tarteaucitron.init({
+  "privacyUrl": "/politique-de-confidentialite",
+
+  "bodyPosition": "bottom",
+  "hashtag": "#tarteaucitron",
+  "cookieName": "tarteaucitron",
+  "orientation": "bottom",
+
+  "groupServices": true,
+  "showDetailsOnClick": true,
+  "serviceDefaultState": "wait",
+
+  "showAlertSmall": false,
+  "cookieslist": false,
+  "cookieslistEmbed": false,
+
+  "showIcon": true,
+  "iconPosition": "BottomRight",
+
+  "adblocker": false,
+
+  "DenyAllCta": true,
+  "AcceptAllCta": true,
+  "highPrivacy": true,
+  "alwaysNeedConsent": false,
+
+  "handleBrowserDNTRequest": false,
+
+  "removeCredit": false,
+  "moreInfoLink": true,
+
+  "useExternalCss": false,
+  "useExternalJs": false,
+
+  "readmoreLink": "/politique-de-confidentialite",
+
+  "mandatory": true,
+  "mandatoryCta": false,
+
+  "googleConsentMode": true,
+  "bingConsentMode": false,
+  "pianoConsentMode": false,
+  "softConsentMode": false,
+
+  "dataLayer": false,
+  "serverSide": false,
+  "partnersList": false
+});
+
+// Services gérés — chaque script analytics devra être migré ici
+// Umami : data-website-id="6da0c148-b3cd-4233-b871-90707929f4fb"
+// Google Analytics : G-V1K9YVSD4V
+// Ahrefs : Xz8KS0avlF0kqPnARTJyNQ
+
+// GOOGLE ANALYTICS (GA4)
+tarteaucitron.user.gtagUa = 'G-V1K9YVSD4V';
+tarteaucitron.user.gtagMore = function() { /* désactivé — géré par consent mode */ };
+(tarteaucitron.job = tarteaucitron.job || []).push('gtag');
+
+// UNAMI ANALYTICS (service personnalisé)
+tarteaucitron.user.umamiWebsiteId = '6da0c148-b3cd-4233-b871-90707929f4fb';
+tarteaucitron.user.umamiHost = 'https://bauhem-analytics-umami-2025.netlify.app';
+(tarteaucitron.job = tarteaucitron.job || []).push('umami');
+
+// AHCREFS ANALYTICS
+tarteaucitron.user.ahrefsKey = 'Xz8KS0avlF0kqPnARTJyNQ';
+(tarteaucitron.job = tarteaucitron.job || []).push('ahrefs');
+</script>
