@@ -19,11 +19,13 @@ import { getMapboxAccessToken, getGoogleMapsEmbedApiKey } from '@/lib/map-server
 import { getAllColorVariables } from '@/lib/repositories/colorVariableRepository';
 import { getSettingByKey } from '@/lib/repositories/settingsRepository';
 import { getItemsWithValues, getItemsWithValuesByIds } from '@/lib/repositories/collectionItemRepository';
+import { getValuesByItemIds } from '@/lib/repositories/collectionItemValueRepository';
 import { getFieldsByCollectionId } from '@/lib/repositories/collectionFieldRepository';
 import { REF_PAGE_PREFIX, REF_COLLECTION_PREFIX, isCollectionItemKeyword, parseCollectionLinkValue } from '@/lib/link-utils';
 import { getClassesString, hasPasswordFormLayer } from '@/lib/layer-utils';
+import { buildLocalizedPageUrls, type LocalizedDynamicSlug } from '@/lib/page-utils';
 import { getTranslatableKey } from '@/lib/locale-runtime';
-import { buildLocalizedSlugPath, buildLocalizedDynamicPageUrl } from '@/lib/page-utils';
+import { getTranslationsByLocale } from '@/lib/repositories/translationRepository';
 import { getSupabaseAdmin } from '@/lib/supabase-server';
 import type { Layer, Component, Page, CollectionItemWithValues, CollectionField, Locale, PageFolder, PasswordProtectionContext, Translation } from '@/types';
 
@@ -133,73 +135,6 @@ async function fetchOriginalItemSlug(
   return data?.value || null;
 }
 
-/**
- * Build a map of localeId → full URL path for the language switcher.
- * Uses pre-fetched translations for all locales to correctly resolve
- * translated CMS item slugs, folder slugs, and page slugs.
- */
-async function computeLocalizedPageUrls(
-  page: Page,
-  folders: PageFolder[],
-  collectionItem: CollectionItemWithValues | undefined,
-  collectionFields: CollectionField[],
-  availableLocales: Locale[],
-  isPreview: boolean,
-  isPublished: boolean
-): Promise<Record<string, string>> {
-  const urls: Record<string, string> = {};
-  if (availableLocales.length <= 1) return urls;
-
-  let translationsByLocale: Record<string, Record<string, Translation>>;
-  try {
-    translationsByLocale = isPublished
-      ? await getCachedAllPublishedTranslationsByLocale()
-      : await getCachedAllDraftTranslationsByLocale();
-  } catch {
-    return urls;
-  }
-
-  const slugField = collectionFields.find(f => f.key === 'slug');
-  const slugFieldId = slugField?.id;
-  const itemId = collectionItem?.id;
-
-  for (const locale of availableLocales) {
-    const localeTrans = translationsByLocale[locale.id] || {};
-    let url: string;
-
-    if (page.is_dynamic && itemId && slugFieldId) {
-      // Look up the CMS item slug in the target locale's translations.
-      const slugKey = getTranslatableKey({
-        source_type: 'cms',
-        source_id: itemId,
-        content_key: slugFieldId,
-      });
-      // The translation has the correct slug for this locale.
-      // `collectionItem.values` may have been enhanced by applyCmsTranslations
-      // and carry the CURRENT locale's slug — unreliable for other locales.
-      // Fall back to the raw DB value (default-locale slug) as last resort.
-      const translatedSlug: string | null =
-        localeTrans[slugKey]?.content_value
-        || await fetchOriginalItemSlug(itemId, slugFieldId, isPublished)
-        || null;
-
-      url = buildLocalizedDynamicPageUrl(page, folders, translatedSlug, locale, localeTrans);
-    } else {
-      url = buildLocalizedSlugPath(page, folders, 'page', locale, localeTrans);
-    }
-
-    if (isPreview && url && url !== '/') {
-      url = `/ycode/preview${url}`;
-    } else if (isPreview && url === '/') {
-      url = '/ycode/preview';
-    }
-
-    urls[locale.id] = url;
-  }
-
-  return urls;
-}
-
 /** Recursively collect all page link refs ({collection_item_id, page_id}) from a Tiptap JSON node.
  * Also descends into pre-resolved layers stored on embedded richTextComponent nodes. */
 function collectTiptapPageLinks(node: any): PageLinkRef[] {
@@ -244,10 +179,11 @@ function collectLayerPageLinks(layers: Layer[]): PageLinkRef[] {
         }
       }
     }
-    // Form redirect_url: extract page refs so collection item slugs are pre-fetched
-    if (layer.settings?.form?.redirect_url?.type === 'page') {
-      const { collection_item_id, id: page_id } = layer.settings.form.redirect_url.page ?? {};
-      if (page_id) results.push({ collection_item_id: collection_item_id || '', page_id });
+    // Form redirect_url: extract page refs so the target item slug is pre-fetched
+    const redirectUrl = layer.settings?.form?.redirect_url;
+    if (redirectUrl?.type === 'page') {
+      const { collection_item_id, id: page_id } = redirectUrl.page ?? {};
+      if (collection_item_id && page_id) results.push({ collection_item_id, page_id });
     }
     const textVar = layer.variables?.text as any;
     if (textVar?.type === 'dynamic_rich_text' && textVar.data?.content) {
@@ -580,6 +516,71 @@ export default async function PageRenderer({
     console.error('[PageRenderer] Error fetching link resolution data:', error);
   }
 
+  // Referenced/ref item slugs above are stored in the source language. On a
+  // non-default locale, swap each to its translated slug so dynamic-page links
+  // resolve to the localized URL (e.g. /fr/.../a-fr instead of /fr/.../a-en).
+  if (translations && locale && !locale.is_default) {
+    for (const itemId of Object.keys(collectionItemSlugs)) {
+      const translatedSlug = translations[`cms:${itemId}:field:key:slug`]?.content_value;
+      if (translatedSlug) {
+        collectionItemSlugs[itemId] = translatedSlug;
+      }
+    }
+  }
+
+  // Pre-compute localized URLs for the locale selector so switching language
+  // preserves translated folder/page/CMS slugs instead of reusing the source slug.
+  // Only runs on multi-locale pages that actually render a locale selector.
+  let localizedPageUrls: Record<string, string> | undefined;
+  if (
+    availableLocales.length > 1 &&
+    layerTreeHasLayer(resolvedLayers, l => l.name === 'localeSelector')
+  ) {
+    try {
+      const translationsByLocale: Record<string, Record<string, Translation>> = {};
+      await Promise.all(
+        availableLocales
+          .filter(l => !l.is_default)
+          .map(async (l) => {
+            // Reuse already-loaded translations for the current locale
+            if (locale && l.id === locale.id && translations) {
+              translationsByLocale[l.id] = translations as Record<string, Translation>;
+              return;
+            }
+            const rows = await getTranslationsByLocale(l.id, usePublishedData);
+            const map: Record<string, Translation> = {};
+            for (const t of rows) {
+              map[getTranslatableKey(t)] = t;
+            }
+            translationsByLocale[l.id] = map;
+          })
+      );
+
+      // Dynamic pages need the translated CMS item slug per locale
+      let dynamicSlug: LocalizedDynamicSlug | null = null;
+      if (page.is_dynamic && collectionItem) {
+        const slugField = collectionFields.find(f => f.key === 'slug');
+        if (slugField) {
+          // collectionItem.values are already translated for the current locale,
+          // so fetch the raw (default-locale) slug to use as the default + fallback.
+          const rawValues = await getValuesByItemIds([collectionItem.id], usePublishedData, undefined, [slugField.id]);
+          const sourceSlug = rawValues[collectionItem.id]?.[slugField.id];
+          if (sourceSlug) {
+            dynamicSlug = {
+              itemId: collectionItem.id,
+              contentKey: slugField.key ? `field:key:${slugField.key}` : `field:id:${slugField.id}`,
+              defaultValue: String(sourceSlug),
+            };
+          }
+        }
+      }
+
+      localizedPageUrls = buildLocalizedPageUrls(page, folders, availableLocales, translationsByLocale, dynamicSlug);
+    } catch (error) {
+      console.error('[PageRenderer] Error building localized page URLs:', error);
+    }
+  }
+
   // Extract custom code from page settings and resolve placeholders for dynamic pages
   const rawPageCustomCodeHead = page.settings?.custom_code?.head || '';
   const rawPageCustomCodeBody = page.settings?.custom_code?.body || '';
@@ -730,12 +731,6 @@ export default async function PageRenderer({
         Object.entries(resolvedAssetsWithMime).map(([id, { url, width, height }]) => [id, { url, width, height }])
       )
       : undefined;
-
-  // Pre-compute localized URLs for the language switcher so CMS item slugs
-  // are correctly translated per locale (not just locale-code prefixed).
-  const localizedPageUrls = await computeLocalizedPageUrls(
-    page, folders, collectionItem, collectionFields, availableLocales, isPreview, usePublishedData
-  );
 
   return (
     <>
@@ -889,6 +884,7 @@ export default async function PageRenderer({
           hiddenLayerInfo={hiddenLayerInfo}
           currentLocale={locale}
           availableLocales={availableLocales}
+          localizedPageUrls={localizedPageUrls}
           pages={pages as any}
           folders={folders as any}
           collectionItemSlugs={collectionItemSlugs}
@@ -899,7 +895,6 @@ export default async function PageRenderer({
           serverSettings={serverSettings}
           lcpCandidateLayerId={lcpCandidateLayerId}
           passwordProtection={is401Page ? passwordProtection : undefined}
-          localizedPageUrls={localizedPageUrls}
         />
 
         {/* Fallback hardcoded password form: only when the 401 page has no inline

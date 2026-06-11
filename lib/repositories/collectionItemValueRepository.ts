@@ -2,6 +2,7 @@ import { getSupabaseAdmin, getTenantIdFromHeaders } from '@/lib/supabase-server'
 import { SUPABASE_QUERY_LIMIT } from '@/lib/supabase-constants';
 import { getKnexClient } from '@/lib/knex-client';
 import type { CollectionItemValue, CollectionFieldType } from '@/types';
+import { isValidUUID } from '@/lib/utils';
 import { castValue, valueToString } from '../collection-utils';
 import { generateCollectionItemContentHash } from '../hash-utils';
 import { randomUUID } from 'crypto';
@@ -130,11 +131,10 @@ export async function getValuesByItemIds(
     throw new Error('Supabase client not configured');
   }
 
-  const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-  const validItemIds = item_ids.filter(id => uuidRegex.test(id));
-  const validFieldIds = fieldIds ? fieldIds.filter(id => uuidRegex.test(id)) : undefined;
+  const safeItemIds = item_ids.filter(isValidUUID);
+  const safeFieldIds = fieldIds?.filter(isValidUUID);
 
-  if (validItemIds.length === 0) {
+  if (safeItemIds.length === 0 || (safeFieldIds && safeFieldIds.length === 0)) {
     return {};
   }
 
@@ -147,19 +147,19 @@ export async function getValuesByItemIds(
     const knex = await getKnexClient();
     let query = knex('collection_item_values')
       .select('item_id', 'field_id', 'value')
-      .whereIn('item_id', validItemIds)
+      .whereIn('item_id', safeItemIds)
       .andWhere('is_published', is_published)
       .whereNull('deleted_at');
-    if (validFieldIds) {
-      query = query.whereIn('field_id', validFieldIds);
+    if (safeFieldIds) {
+      query = query.whereIn('field_id', safeFieldIds);
     }
     allRows = await query;
   } catch {
     // Fallback: Supabase chunked reads
     const CHUNK_SIZE = 50;
     const chunks: string[][] = [];
-    for (let i = 0; i < validItemIds.length; i += CHUNK_SIZE) {
-      chunks.push(validItemIds.slice(i, i + CHUNK_SIZE));
+    for (let i = 0; i < safeItemIds.length; i += CHUNK_SIZE) {
+      chunks.push(safeItemIds.slice(i, i + CHUNK_SIZE));
     }
 
     const chunkResults = await Promise.all(
@@ -170,8 +170,8 @@ export async function getValuesByItemIds(
           .in('item_id', chunk)
           .eq('is_published', is_published)
           .is('deleted_at', null);
-        if (validFieldIds) {
-          q = q.in('field_id', validFieldIds);
+        if (safeFieldIds) {
+          q = q.in('field_id', safeFieldIds);
         }
         const { data, error } = await q.limit(5000);
 

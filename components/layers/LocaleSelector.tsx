@@ -7,7 +7,11 @@ interface LocaleSelectorProps {
   availableLocales: Locale[];
   currentPageSlug: string;
   isPublished: boolean;
-  /** Pre-computed map of localeId → full URL path (e.g. { "en": "/solutions/modernization-aging-websites-systems" }) */
+  /**
+   * Pre-computed relative URLs per locale ID, resolved server-side with
+   * translated folder/page/CMS slugs. When available, these take precedence
+   * over naive prefix manipulation so translated slugs are preserved.
+   */
   localizedPageUrls?: Record<string, string>;
 }
 
@@ -38,16 +42,13 @@ export default function LocaleSelector({
 
     if (!selectedLocale) return;
 
-    // Use pre-computed URL when available (handles CMS slug translation correctly).
-    if (localizedPageUrls?.[selectedLocaleId]) {
-      const prefix = isPreviewMode ? '/ycode/preview' : '';
-      window.location.href = `${prefix}${localizedPageUrls[selectedLocaleId]}`;
-      return;
-    }
+    // Prefer the server-resolved URL (translated slugs); fall back to naive prefixing
+    const precomputed = localizedPageUrls?.[selectedLocaleId];
+    const newUrl = precomputed
+      ? (isPreviewMode ? `/ycode/preview${precomputed}` : precomputed)
+      : buildLocalizedUrl(currentPageSlug, selectedLocale, currentLocale || null, isPreviewMode);
 
-    // Fallback: naive locale-code prefixing (legacy behaviour for pages
-    // where localizedPageUrls was not computed).
-    const newUrl = buildLocalizedUrl(currentPageSlug, selectedLocale, currentLocale || null, isPreviewMode);
+    // Redirect to the new URL
     window.location.href = newUrl;
   };
 
