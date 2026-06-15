@@ -1,5 +1,4 @@
 import { notFound, redirect, permanentRedirect } from 'next/navigation';
-import { unstable_noStore } from 'next/cache';
 import { fetchPageByPath, fetchErrorPage, PaginationContext } from '@/lib/page-fetcher';
 import PageRenderer from '@/components/PageRenderer';
 import PasswordForm from '@/components/PasswordForm';
@@ -9,9 +8,9 @@ import { parseAuthCookie, getPasswordProtection, fetchFoldersForAuth } from '@/l
 import { matchRedirect } from '@/lib/redirect-utils';
 import type { Redirect as RedirectType } from '@/types';
 
-// Internal pagination path: always dynamic/no-store.
-export const dynamic = 'force-dynamic';
-export const revalidate = 0;
+// Internal pagination path: ISR with 60s revalidation.
+export const dynamic = 'auto';
+export const revalidate = 60;
 
 interface DynamicSlugPageProps {
   params: Promise<{ slug: string | string[] }>;
@@ -48,8 +47,6 @@ export default async function DynamicSlugPage({ params, searchParams }: DynamicS
       }
     }
   }
-
-  unstable_noStore();
 
   const paginationContext: PaginationContext = {
     pageNumbers,

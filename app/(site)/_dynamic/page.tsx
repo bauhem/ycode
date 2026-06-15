@@ -1,4 +1,3 @@
-import { unstable_noStore } from 'next/cache';
 import Link from 'next/link';
 import { fetchHomepage, fetchErrorPage, PaginationContext } from '@/lib/page-fetcher';
 import PageRenderer from '@/components/PageRenderer';
@@ -8,9 +7,9 @@ import { parseAuthCookie, getPasswordProtection, fetchFoldersForAuth } from '@/l
 import { getSettingByKey } from '@/lib/repositories/settingsRepository';
 import { generateColorVariablesCss } from '@/lib/repositories/colorVariableRepository';
 
-// Internal pagination path: always dynamic/no-store.
-export const dynamic = 'force-dynamic';
-export const revalidate = 0;
+// Internal pagination path: ISR with 60s revalidation.
+export const dynamic = 'auto';
+export const revalidate = 60;
 
 interface DynamicHomeProps {
   searchParams: Promise<{ [key: string]: string | string[] | undefined }>;
@@ -30,8 +29,6 @@ export default async function DynamicHome({ searchParams }: DynamicHomeProps) {
       }
     }
   }
-
-  unstable_noStore();
 
   const paginationContext: PaginationContext = {
     pageNumbers,
