@@ -745,7 +745,7 @@ These notes were observed during prior imports and may be fixed or partially mit
      WHERE page_id = '<page-id>' AND is_published = true AND deleted_at IS NULL;
      ```
    - **Prevention**: After creating or modifying any component via MCP or SQL, always regenerate CSS for all dynamic pages (`/ycode/api/css/generate-pages`) and sync to published rows.
-   - **CSS architecture context**: `lib/server/cssGenerator.ts` — `generateCSSForPage()` generates per-page CSS. `collectLayersWithAllComponents()` (line 273) includes ALL component variant layers for dynamic pages. But it only runs when `generateCSSForPage()` is called — it does not auto-trigger on component changes.
+   - **CSS architecture context (updated 2026-06-15, 1.21.4 merge)**: `lib/server/cssGenerator.ts` — `generateCSSForPage()` now simply returns the existing `generated_css`; the actual generation runs in `generateCSSForPages()`. The old `collectLayersWithAllComponents()` has been removed in favor of a smarter approach: `generateCSSForPages()` scans collection rich-text field values for embedded component IDs (via `getEmbeddedComponentIdsForCollections`), seeds those IDs into `collectLayersWithComponents()`, which uses BFS for transitive component discovery. This properly handles components embedded inside CMS rich-text content without including ALL components.
    - **Lesson learned 2026-06-08**: The "Content Listing 3 Colonnes" component (`dce9de95`) had `rounded-[22px]` on its card layer classes but the per-page CSS for `/realisations/ose-media` was generated before this component existed. The CSS went from 69101 → 85688 bytes after regeneration.
 
 ---
