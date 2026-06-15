@@ -80,13 +80,18 @@ const nextConfig: NextConfig = {
         ],
       },
       {
-        // Apply to public pages ONLY (exclude /ycode/*, /_next/*, /a/*)
-        // NOTE: Do NOT set Cache-Control here. Vercel recommends letting
-        // ISR manage cache headers automatically so per-URL cache-tag
-        // tracking works for selective revalidateTag invalidations.
-        // Manual s-maxage breaks per-URL purging on catch-all routes.
+        // Apply to public pages ONLY (exclude /ycode/*, /_next/*, /a/*).
+        // NOTE: On Vercel, ISR manages cache headers automatically and
+        // manual s-maxage breaks per-URL cache-tag tracking for selective
+        // revalidateTag invalidations. On Netlify (self-hosted), the CDN
+        // needs explicit Cache-Control headers — without them, Next.js
+        // defaults to private/no-store and every request hits the origin.
         source: '/:path((?!ycode|_next|a/).*)*',
         headers: [
+          {
+            key: 'Cache-Control',
+            value: 'public, s-maxage=60, stale-while-revalidate=300',
+          },
           {
             // Open the TLS connection to fonts.gstatic.com while the document
             // is still streaming so woff2 binaries can be fetched the moment
