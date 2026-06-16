@@ -2875,16 +2875,11 @@ export async function resolveCollectionLayers(
                 )
               );
 
-              // Filter _collectionItemValues to only bound paths (reduces payload in draft/preview)
-              let filteredValues = enhancedValues;
-              if (layerBoundPaths && layerBoundPaths.size > 0) {
-                filteredValues = {};
-                for (const key of Object.keys(enhancedValues)) {
-                  if (layerBoundPaths.has(key)) {
-                    filteredValues[key] = enhancedValues[key];
-                  }
-                }
-              }
+              // Preserve all resolved values including CMS-translated text.
+              // The bound-paths filtering optimisation (added for draft/preview
+              // payload reduction) can discard translated field values when the
+              // scanner misses a binding inside a nested slider/tab component.
+              const filteredValues = enhancedValues;
 
               // Build the cloned layer with original IDs first
               const clonedLayer: Layer = {
