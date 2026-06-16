@@ -2495,9 +2495,9 @@ async function buildCollectionCache(
       }));
 
       // Load CMS content translations for ALL collection items so that
-      // any downstream rendering (dropdowns, sliders, component instances)
-      // reads translated values regardless of which code path triggers the
-      // first lookup. Without this, non-navigation collections resolve
+      // Pre-populate CMS translations for all collection items fetched so far
+      // so resolveLayer (which reads from itemsByCollection) already sees
+      // translated values. Without this, non-navigation collections resolve
       // untranslated values from the cache before resolveLayer has a chance
       // to call ensureCmsTranslations later.
       if (translations && locale && !locale.is_default) {
@@ -2509,6 +2509,28 @@ async function buildCollectionCache(
         }
         if (allItemIds.length > 0) {
           await ensureCmsTranslations(translations, allItemIds);
+        }
+      }
+
+      // Pre-load translations for dropdown collection items so
+      // buildPageDrivenNavigation can resolve translated labels when
+      // building the navigation tree. Without this, dropdowns (Solutions,
+      // etc.) show default-locale names on localized pages.
+      if (translations && locale && !locale.is_default && collectionItemsByCollectionId) {
+        const dropdownCollectionIds = new Set<string>();
+        for (const page of pages) {
+          if (
+            (page.settings as any)?.dropdown_mode === 'collection_items' &&
+            (page.settings as any)?.dropdown_collection_id
+          ) {
+            dropdownCollectionIds.add((page.settings as any).dropdown_collection_id);
+          }
+        }
+        for (const collId of dropdownCollectionIds) {
+          const items = collectionItemsByCollectionId[collId];
+          if (items && items.length > 0) {
+            await ensureCmsTranslations(translations, items.map((item: any) => item.id).filter(Boolean));
+          }
         }
       }
 
