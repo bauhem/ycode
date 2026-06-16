@@ -303,6 +303,14 @@ export async function generatePageMetadata(
       const translatedTitle = getTranslationValue(translationEntry, { includeIncomplete: isPreview });
       if (translatedTitle) {
         title = translatedTitle;
+        // Also resolve inline variables in the translated title so
+        // <ycode-inline-variable> tags inside translated SEO strings
+        // (e.g. "Bauhem Blog | <ycode-inline-variable>...</ycode-inline-variable>")
+        // are replaced with actual CMS field values, matching FR default behaviour.
+        if (collectionItem) {
+          const resolved = resolveInlineVariables(translatedTitle, collectionItem);
+          if (resolved) title = resolved;
+        }
       }
     }
 
@@ -311,6 +319,10 @@ export async function generatePageMetadata(
       const translatedDescription = getTranslationValue(translationDescEntry, { includeIncomplete: isPreview });
       if (translatedDescription) {
         description = translatedDescription;
+        if (collectionItem) {
+          const resolved = resolveInlineVariables(translatedDescription, collectionItem);
+          if (resolved) description = resolved;
+        }
       }
     }
   }
