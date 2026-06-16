@@ -2526,6 +2526,14 @@ async function buildCollectionCache(
       result.itemsByCollection.set(PAGE_NAVIGATION_COLLECTION_ID, navigationItems);
       result.totalByCollection.set(PAGE_NAVIGATION_COLLECTION_ID, navigationItems.length);
       result.fieldsByCollection.set(PAGE_NAVIGATION_COLLECTION_ID, PAGE_NAVIGATION_FIELDS);
+
+      // Load CMS translations for navigation items too (Solutions, etc.)
+      if (translations && locale && !locale.is_default && navigationItems.length > 0) {
+        const navItemIds = navigationItems.map((i: any) => i.id).filter(Boolean);
+        if (navItemIds.length > 0) {
+          await ensureCmsTranslations(translations, navItemIds);
+        }
+      }
       for (const field of PAGE_NAVIGATION_FIELDS) {
         result.fieldTypeMap[field.id] = field.type;
       }

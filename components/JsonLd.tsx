@@ -1,5 +1,5 @@
 import { buildJsonLd } from '@/lib/generate-jsonld';
-import type { CollectionItemWithValues, Page } from '@/types';
+import type { CollectionItemWithValues, Locale, Page } from '@/types';
 
 interface JsonLdProps {
   page: Page;
@@ -8,6 +8,7 @@ interface JsonLdProps {
   title: string;
   description: string;
   collectionItem?: CollectionItemWithValues | null;
+  locale?: Locale | null;
 }
 
 /**
@@ -16,8 +17,8 @@ interface JsonLdProps {
  * whether it's in <head> or <body>, so this component can be
  * placed anywhere in the page tree.
  */
-export default function JsonLd({ page, baseUrl, pagePath, title, description, collectionItem }: JsonLdProps) {
-  const graph = buildJsonLd({ page, baseUrl, pagePath, title, description, collectionItem });
+export default function JsonLd({ page, baseUrl, pagePath, title, description, collectionItem, locale }: JsonLdProps) {
+  const graph = buildJsonLd({ page, baseUrl, pagePath, title, description, collectionItem, locale });
 
   return (
     <>

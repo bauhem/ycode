@@ -392,6 +392,7 @@ export default async function Page({ params }: PageProps) {
         title={seoTitle}
         description={seoDesc}
         collectionItem={collectionItem}
+        locale={locale}
       />
       <PageRenderer
         page={page}

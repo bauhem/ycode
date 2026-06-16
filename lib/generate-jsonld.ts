@@ -8,26 +8,30 @@
  * SERVER-ONLY: This module should never be imported in client code.
  */
 
-import type { CollectionItemWithValues, Page } from '@/types';
+import type { CollectionItemWithValues, Locale, Page } from '@/types';
 import { getSiteBaseUrl } from '@/lib/url-utils';
 
 /** Organization data shared across all schema blocks */
-const ORGANIZATION = {
-  name: 'Bauhem',
-  description:
-    'Bauhem conçoit des sites, portails et systèmes web structurés pour aider les PME à être mieux comprises par leurs clients, Google et les outils d\'IA.',
-  foundingDate: '2012',
-  founder: {
-    '@type': 'Person' as const,
-    name: 'Guillaume Gosselin',
-  },
-  address: {
-    '@type': 'PostalAddress' as const,
-    addressLocality: 'Alma',
-    addressRegion: 'Québec',
-    addressCountry: 'CA',
-  },
-} as const;
+function getOrganization(locale?: Locale | null) {
+  const isEn = locale?.code === 'en';
+  return {
+    name: 'Bauhem',
+    description: isEn
+      ? 'Bauhem designs structured websites, portals and web systems that help SMBs be better understood by their clients, Google and AI tools.'
+      : 'Bauhem conçoit des sites, portails et systèmes web structurés pour aider les PME à être mieux comprises par leurs clients, Google et les outils d\'IA.',
+    foundingDate: '2012',
+    founder: {
+      '@type': 'Person' as const,
+      name: 'Guillaume Gosselin',
+    },
+    address: {
+      '@type': 'PostalAddress' as const,
+      addressLocality: 'Alma',
+      addressRegion: 'Québec',
+      addressCountry: 'CA',
+    },
+  } as const;
+}
 
 export interface JsonLdContext {
   page: Page;
@@ -36,6 +40,7 @@ export interface JsonLdContext {
   title: string;
   description: string;
   collectionItem?: CollectionItemWithValues | null;
+  locale?: Locale | null;
 }
 
 /**
@@ -56,8 +61,9 @@ function detectPageType(page: Page, pagePath: string): 'home' | 'service' | 'sol
  * page-type-specific types like Service or BlogPosting).
  */
 export function buildJsonLd(context: JsonLdContext): object[] {
-  const { page, baseUrl, pagePath, title, description, collectionItem } = context;
+  const { page, baseUrl, pagePath, title, description, collectionItem, locale } = context;
   const pageType = detectPageType(page, pagePath);
+  const organization = getOrganization(locale);
 
   const graph: object[] = [];
 
@@ -65,7 +71,7 @@ export function buildJsonLd(context: JsonLdContext): object[] {
   graph.push({
     '@context': 'https://schema.org',
     '@type': 'Organization',
-    ...ORGANIZATION,
+    ...organization,
     url: baseUrl,
   });
 
@@ -74,7 +80,7 @@ export function buildJsonLd(context: JsonLdContext): object[] {
     '@type': 'WebSite',
     name: 'Bauhem',
     url: baseUrl,
-    description: ORGANIZATION.description,
+    description: organization.description,
     inLanguage: pagePath.startsWith('/en') ? 'en' : 'fr',
   });
 
@@ -94,7 +100,7 @@ export function buildJsonLd(context: JsonLdContext): object[] {
   });
 
   // BreadcrumbList
-  const breadcrumbs = buildBreadcrumbs(pagePath, baseUrl);
+  const breadcrumbs = buildBreadcrumbs(pagePath, baseUrl, locale);
   if (breadcrumbs.length > 0) {
     graph.push({
       '@context': 'https://schema.org',
@@ -120,7 +126,7 @@ export function buildJsonLd(context: JsonLdContext): object[] {
         description,
         provider: {
           '@type': 'Organization',
-          name: ORGANIZATION.name,
+          name: organization.name,
           url: baseUrl,
         },
         areaServed: {
@@ -148,7 +154,7 @@ export function buildJsonLd(context: JsonLdContext): object[] {
         dateModified: page.updated_at || datePublished,
         publisher: {
           '@type': 'Organization',
-          name: ORGANIZATION.name,
+          name: organization.name,
           url: baseUrl,
         },
         image: undefined, // Will be filled by collection item image if available
@@ -164,7 +170,7 @@ export function buildJsonLd(context: JsonLdContext): object[] {
         description,
         provider: {
           '@type': 'Organization',
-          name: ORGANIZATION.name,
+          name: organization.name,
           url: baseUrl,
         },
         areaServed: {
@@ -183,12 +189,13 @@ export function buildJsonLd(context: JsonLdContext): object[] {
 /**
  * Build breadcrumb trail from a page path.
  */
-function buildBreadcrumbs(pagePath: string, baseUrl: string): { name: string; url: string }[] {
+function buildBreadcrumbs(pagePath: string, baseUrl: string, locale?: Locale | null): { name: string; url: string }[] {
+  const homeLabel = locale?.code === 'en' ? 'Home' : 'Accueil';
   if (pagePath === '/' || pagePath === '') {
-    return [{ name: 'Accueil', url: baseUrl }];
+    return [{ name: homeLabel, url: baseUrl }];
   }
 
-  const crumbs: { name: string; url: string }[] = [{ name: 'Accueil', url: baseUrl }];
+  const crumbs: { name: string; url: string }[] = [{ name: homeLabel, url: baseUrl }];
   const segments = pagePath.replace(/^\//, '').replace(/\/$/, '').split('/');
 
   let accumulatedPath = '';
