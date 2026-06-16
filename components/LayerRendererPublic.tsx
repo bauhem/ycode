@@ -785,6 +785,7 @@ const LayerItem: React.FC<{
       'for': 'htmlFor',
       'class': 'className',
       'autofocus': 'autoFocus',
+      'fetchpriority': 'fetchPriority',
     };
 
     // Convert string boolean values to actual booleans and map HTML attrs to JSX
@@ -793,6 +794,10 @@ const LayerItem: React.FC<{
         .filter(([key]) => {
           // React uses defaultValue/value on <select>, not selected on <option>
           if (htmlTag === 'option' && key === 'selected') return false;
+          // Strip inline event handlers (onload, onerror, etc.) —
+          // they are browser-native string attributes, not React
+          // synthetic events that expect functions.
+          if (/^on/i.test(key)) return false;
           return true;
         })
         .map(([key, value]) => {

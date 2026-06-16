@@ -28,6 +28,11 @@ function parseAttributes(attrString: string): Record<string, string> {
 function toReactAttrs(attrs: Record<string, string>): Record<string, string> {
   const result: Record<string, string> = {};
   for (const [key, value] of Object.entries(attrs)) {
+    // Strip inline event handlers (onload, onerror, etc.) — they are
+    // browser-native attributes with string values, not React synthetic
+    // events. Passing them to React.createElement produces an invalid
+    // DOM property warning (React 19+).
+    if (/^on/i.test(key)) continue;
     result[HTML_TO_REACT_ATTRS[key.toLowerCase()] || key] = value;
   }
   return result;

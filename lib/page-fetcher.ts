@@ -1,3 +1,4 @@
+import { headers } from 'next/headers';
 import { cache } from 'react';
 import { escapeHtml } from '@/lib/escape-html';
 import { getSupabaseAdmin } from '@/lib/supabase-server';
@@ -903,6 +904,25 @@ export async function fetchErrorPage(
       return null;
     }
 
+    // Detect locale and load translations so navigation dropdown items
+    // (Services, Solutions, etc.) resolve in the correct language when the
+    // error page is rendered in a non-default locale context.
+    let resolvedLocale: Locale | null = null;
+    let resolvedTranslations: Record<string, Translation> | undefined;
+    try {
+      const headersList = await headers();
+      const pathname = headersList.get('x-pathname') || headersList.get('x-next-pathname') || '/';
+      const validLocaleCodes = ['fr', 'en'];
+      const detection = detectLocaleFromPath(pathname, validLocaleCodes);
+      if (detection) {
+        const result = await loadTranslationsForLocale(detection.localeCode, isPublished, tenantId);
+        resolvedLocale = result.locale;
+        resolvedTranslations = result.translations;
+      }
+    } catch {
+      // Silently continue without translations
+    }
+
     // Get all active locales from the database
     const { data: availableLocales } = await supabase
       .from('locales')
@@ -947,11 +967,11 @@ export async function fetchErrorPage(
     // Resolve collection layers server-side (for both draft and published)
     // The isPublished parameter controls which collection items to fetch
     let resolvedLayers = layersWithComponents.length > 0
-      ? await resolveCollectionLayers(layersWithComponents, isPublished, undefined, undefined, undefined)
+      ? await resolveCollectionLayers(layersWithComponents, isPublished, undefined, undefined, resolvedTranslations, undefined, undefined, resolvedLocale)
       : [];
 
     // Resolve collections inside rich text embedded components
-    resolvedLayers = await resolveRichTextCollections(resolvedLayers, components, isPublished, errorPage.id);
+    resolvedLayers = await resolveRichTextCollections(resolvedLayers, components, isPublished, errorPage.id, resolvedTranslations, undefined, resolvedLocale?.code);
 
     // Resolve all AssetVariables to URLs server-side (prevents client-side API calls)
     const resolved = await resolveAllAssets(resolvedLayers, isPublished, components);
@@ -964,9 +984,9 @@ export async function fetchErrorPage(
         layers: resolvedLayers,
       },
       components, // Layers are pre-resolved; components passed for rich-text embedded rendering
-      locale: null, // Error pages don't have locale context
+      locale: resolvedLocale,
       availableLocales: availableLocales as Locale[] || [],
-      translations: {}, // Error pages don't have translations
+      translations: resolvedTranslations || {},
     };
   } catch (error) {
     console.error('Failed to fetch error page:', error);
@@ -994,6 +1014,29 @@ export const fetchHomepage = cache(async function fetchHomepage(
 
     if (!supabase) {
       return null;
+    }
+
+    // When translations/locale are not provided by the caller, detect the
+    // locale from the request path and load them here. This ensures the
+    // homepage (which is fetched directly by app/(site)/page.tsx without
+    // going through fetchPageByPathInternal) still resolves CMS content
+    // translations for dropdown navigation items (Services, Solutions, etc.).
+    let resolvedLocale = locale ?? null;
+    let resolvedTranslations = translations;
+    if (!resolvedLocale || !resolvedTranslations) {
+      try {
+        const headersList = await headers();
+        const pathname = headersList.get('x-pathname') || headersList.get('x-next-pathname') || '/';
+        const validLocaleCodes = ['fr', 'en']; // Bauhem supported locales
+        const detection = detectLocaleFromPath(pathname, validLocaleCodes);
+        if (detection) {
+          const result = await loadTranslationsForLocale(detection.localeCode, isPublished, tenantId);
+          resolvedLocale = result.locale;
+          resolvedTranslations = result.translations;
+        }
+      } catch {
+        // Silently continue without translations
+      }
     }
 
     // Fetch locales, homepage, and components in parallel
@@ -1030,19 +1073,19 @@ export const fetchHomepage = cache(async function fetchHomepage(
 
     // Translate component-instance override values before resolving components
     // so per-instance translations are applied through the override pipeline.
-    const localizedRawLayers = translations && Object.keys(translations).length > 0
-      ? translateComponentOverrides(pageLayers?.layers || [], homepage.id, translations, { includeIncomplete: !isPublished })
+    const localizedRawLayers = resolvedTranslations && Object.keys(resolvedTranslations).length > 0
+      ? translateComponentOverrides(pageLayers?.layers || [], homepage.id, resolvedTranslations, { includeIncomplete: !isPublished })
       : pageLayers?.layers || [];
 
     const layersWithComponents = resolveComponents(localizedRawLayers, components);
 
     // Resolve collection layers server-side (for both draft and published)
     let resolvedLayers = layersWithComponents.length > 0
-      ? await resolveCollectionLayers(layersWithComponents, isPublished, undefined, paginationContext, translations, undefined, undefined, locale)
+      ? await resolveCollectionLayers(layersWithComponents, isPublished, undefined, paginationContext, resolvedTranslations, undefined, undefined, resolvedLocale)
       : [];
 
     // Resolve collections inside rich text embedded components
-    resolvedLayers = await resolveRichTextCollections(resolvedLayers, components, isPublished, homepage.id, translations, undefined, locale?.code);
+    resolvedLayers = await resolveRichTextCollections(resolvedLayers, components, isPublished, homepage.id, resolvedTranslations, undefined, resolvedLocale?.code);
 
     // Resolve all AssetVariables to URLs server-side (prevents client-side API calls)
     const resolved = await resolveAllAssets(resolvedLayers, isPublished, components);
@@ -1055,9 +1098,9 @@ export const fetchHomepage = cache(async function fetchHomepage(
         layers: resolvedLayers,
       },
       components,
-      locale: locale || null,
+      locale: resolvedLocale || null,
       availableLocales: availableLocales as Locale[] || [],
-      translations: translations || {},
+      translations: resolvedTranslations || {},
       generatedCss: pageLayers?.generated_css || null,
     };
   } catch (error) {
@@ -2435,6 +2478,16 @@ async function buildCollectionCache(
         const { items } = await getItemsWithValues(collection.id, isPublished, undefined);
         collectionItemsByCollectionId[collection.id] = items;
       }));
+
+      // Load CMS content translations so dropdown items (Services, Solutions,
+      // etc.) render the correct label in non-default locales. Without this,
+      // getTranslatedItemFieldValue in buildPageNavigationCollectionItems
+      // cannot resolve any translation and falls back to raw FR values.
+      if (translations && locale && !locale.is_default) {
+        const allItemIds = Object.values(collectionItemsByCollectionId)
+          .flatMap((items: any[]) => items.map((i: any) => i.id));
+        await ensureCmsTranslations(translations, allItemIds);
+      }
 
       const navigationItems = buildPageNavigationCollectionItems({
         pages,
