@@ -380,8 +380,22 @@ export default async function Page({ params }: PageProps) {
   }
 
   const siteBaseUrl = getSiteBaseUrl({ globalCanonicalUrl: globalSettings.globalCanonicalUrl }) || 'https://admin.bauhem.com';
-  const seoTitle = page.settings?.seo?.title || page.name || slugPath;
-  const seoDesc = page.settings?.seo?.description || '';
+
+  // Resolve multilingual SEO translations for JSON-LD
+  let seoTitle = page.settings?.seo?.title || page.name || slugPath;
+  let seoDesc = page.settings?.seo?.description || '';
+  if (translations && page.id) {
+    const seoTitleKey = `page:${page.id}:seo:title`;
+    const seoDescKey = `page:${page.id}:seo:description`;
+    const titleTranslation = translations[seoTitleKey];
+    if (titleTranslation?.content_value) {
+      seoTitle = titleTranslation.content_value;
+    }
+    const descTranslation = translations[seoDescKey];
+    if (descTranslation?.content_value) {
+      seoDesc = descTranslation.content_value;
+    }
+  }
 
   return (
     <>

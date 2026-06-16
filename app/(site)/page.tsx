@@ -230,8 +230,8 @@ export default async function Home() {
         page={data.page}
         baseUrl={siteBaseUrl}
         pagePath="/"
-        title={data.page.settings?.seo?.title || data.page.name || (data.locale?.code === 'en' ? 'Bauhem — Websites, web systems & AI discoverability' : 'Bauhem — Sites, systèmes web et découvrabilité IA')}
-        description={data.page.settings?.seo?.description || (data.locale?.code === 'en' ? 'Bauhem designs structured websites, portals and web systems that help SMBs be better understood by their clients, Google and AI tools.' : 'Bauhem conçoit des sites, portails et systèmes web structurés pour aider les PME à être mieux comprises par leurs clients, Google et les outils d\'IA.')}
+        title={(data.translations?.[`page:${data.page.id}:seo:title`]?.content_value as string) || data.page.settings?.seo?.title || data.page.name || (data.locale?.code === 'en' ? 'Bauhem — Websites, web systems & AI discoverability' : 'Bauhem — Sites, systèmes web et découvrabilité IA')}
+        description={(data.translations?.[`page:${data.page.id}:seo:description`]?.content_value as string) || data.page.settings?.seo?.description || (data.locale?.code === 'en' ? 'Bauhem designs structured websites, portals and web systems that help SMBs be better understood by their clients, Google and AI tools.' : 'Bauhem conçoit des sites, portails et systèmes web structurés pour aider les PME à être mieux comprises par leurs clients, Google et les outils d\'IA.')}
         locale={data.locale}
       />
       <PageRenderer
