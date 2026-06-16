@@ -14,14 +14,20 @@ const https = require("https");
 const http = require("http");
 
 // ────────────────────────────────────────────────────────────────────────────
-// Spam detection — honeypot only
+// Spam detection — honeypot + whitelist
 // ────────────────────────────────────────────────────────────────────────────
 //
-// A hidden field that only bots fill. Humans never see it.
-// If you add more forms, just make sure each has a field named "honeypot".
+// YCode does NOT preserve HTML name="honeypot" in webhook payloads.
+// Instead, it sends layer-id-prefixed keys like:
+//   "lyr-contact-hero-form-instance-lyr-mqfjh0a6y99hfg"
+//
+// Strategy: any field key NOT in the known-fields whitelist that has a
+// non-empty value is the honeypot being filled by a bot.
+
+var KNOWN_FIELDS = ["name", "email", "phone", "message", "service"];
 
 /**
- * Run spam check. Only one rule: was the honeypot field filled?
+ * Run spam check. Only one rule: was an unknown field (honeypot) filled?
  * Returns { spam: boolean, reason: string|null }
  */
 function detectSpam(fields) {
@@ -29,9 +35,13 @@ function detectSpam(fields) {
     return { spam: true, reason: "empty_fields" };
   }
 
-  const honeypotVal = String(fields.honeypot || "").trim();
-  if (honeypotVal.length > 0) {
-    return { spam: true, reason: "honeypot_filled" };
+  for (var key in fields) {
+    if (Object.prototype.hasOwnProperty.call(fields, key) && KNOWN_FIELDS.indexOf(key) === -1) {
+      var val = String(fields[key] || "").trim();
+      if (val.length > 0) {
+        return { spam: true, reason: "honeypot_filled" };
+      }
+    }
   }
 
   return { spam: false, reason: null };
@@ -172,7 +182,7 @@ exports.handler = async function (event) {
   var payload;
   try {
     payload = JSON.parse(event.body);
-  } catch (_e) {
+  } catch (e) {
     return {
       statusCode: 400,
       body: JSON.stringify({ error: "Invalid JSON body" }),
