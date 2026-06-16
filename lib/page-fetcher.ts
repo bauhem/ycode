@@ -1349,49 +1349,63 @@ async function injectCollectionData(
   // Resolve inline variables in text content
   const textVariable = layer.variables?.text;
 
-  // Handle DynamicRichTextVariable (Tiptap JSON with dynamicVariable nodes)
-  if (textVariable && textVariable.type === 'dynamic_rich_text') {
-    const content = textVariable.data.content;
-    if (content && typeof content === 'object') {
-      const restrictiveBlockTags = ['p', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'span', 'a', 'button'];
-      const currentTag = layer.settings?.tag || layer.name || 'div';
-      if (restrictiveBlockTags.includes(currentTag) &&
-          hasBlockElementsInInlineVariables(content, enhancedValues)) {
-        updates.settings = {
-          ...layer.settings,
-          tag: 'div',
+  if (textVariable) {
+    // Handle DynamicRichTextVariable (Tiptap JSON with dynamicVariable nodes)
+    if (textVariable.type === 'dynamic_rich_text') {
+      const content = textVariable.data.content;
+      if (content && typeof content === 'object') {
+        const restrictiveBlockTags = ['p', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'span', 'a', 'button'];
+        const currentTag = layer.settings?.tag || layer.name || 'div';
+        if (restrictiveBlockTags.includes(currentTag) &&
+            hasBlockElementsInInlineVariables(content, enhancedValues)) {
+          updates.settings = {
+            ...layer.settings,
+            tag: 'div',
+          };
+        }
+
+        const resolvedContent = resolveRichTextVariables(content, enhancedValues, layerDataMap, rawItemValues, timezone);
+        resolvedVars.text = {
+          type: 'dynamic_rich_text',
+          data: { content: resolvedContent },
         };
       }
-
-      const resolvedContent = resolveRichTextVariables(content, enhancedValues, layerDataMap, rawItemValues, timezone);
-      resolvedVars.text = {
-        type: 'dynamic_rich_text',
-        data: { content: resolvedContent },
-      };
     }
-  }
-  // Handle DynamicTextVariable (legacy string format with inline variable tags)
-  else if (textVariable && textVariable.type === 'dynamic_text') {
-    const textContent = textVariable.data.content;
-    if (textContent.includes('<ycode-inline-variable>')) {
-      const mockItem: CollectionItemWithValues = {
-        id: 'temp',
-        collection_id: 'temp',
-        created_at: '',
-        updated_at: '',
-        deleted_at: null,
-        manual_order: 0,
-        is_published: true,
-        is_publishable: true,
-        content_hash: null,
-        values: enhancedValues,
-      };
-      const resolved = resolveInlineVariablesWithRelationships(textContent, mockItem, timezone, rawItemValues);
+    // Handle DynamicTextVariable (legacy string format with inline variable tags)
+    else if (textVariable.type === 'dynamic_text') {
+      const textContent = textVariable.data.content;
+      if (textContent.includes('<ycode-inline-variable>')) {
+        const mockItem: CollectionItemWithValues = {
+          id: 'temp',
+          collection_id: 'temp',
+          created_at: '',
+          updated_at: '',
+          deleted_at: null,
+          manual_order: 0,
+          is_published: true,
+          is_publishable: true,
+          content_hash: null,
+          values: enhancedValues,
+        };
+        const resolved = resolveInlineVariablesWithRelationships(textContent, mockItem, timezone, rawItemValues);
 
-      resolvedVars.text = {
-        type: 'dynamic_text',
-        data: { content: resolved },
-      };
+        resolvedVars.text = {
+          type: 'dynamic_text',
+          data: { content: resolved },
+        };
+      }
+    }
+    // Handle FieldVariable text (bound to a CMS collection field).
+    // Must be resolved server-side against enhancedValues (which includes
+    // CMS translations) so the text is stable across SSR hydration.
+    else if (isFieldVariable(textVariable)) {
+      const resolvedValue = resolveFieldValueWithRelationships(textVariable, enhancedValues, layerDataMap);
+      if (resolvedValue !== undefined) {
+        resolvedVars.text = {
+          type: 'dynamic_text',
+          data: { content: resolvedValue },
+        } as any;
+      }
     }
   }
 
@@ -1644,12 +1658,13 @@ function resolveRichTextVariables(
         ? [fieldId, ...relationships].join('.')
         : fieldId;
 
-      // Resolve value: use layer-specific data if collection_layer_id is specified
-      let value: any;
-      if (collectionLayerId && layerDataMap?.[collectionLayerId]) {
+      // Resolve value: prefer itemValues (which already includes CMS translations)
+      // over layerDataMap (which may hold stale pre-translation values from
+      // the buildCollectionCache phase). Only consult layerDataMap as a
+      // fallback for layer-specific data not present in itemValues.
+      let value: any = itemValues[fullPath];
+      if ((value === undefined || value === null) && collectionLayerId && layerDataMap?.[collectionLayerId]) {
         value = layerDataMap[collectionLayerId][fullPath];
-      } else {
-        value = itemValues[fullPath];
       }
 
       // Handle rich_text fields - preserve block structure for proper rendering
@@ -2479,14 +2494,22 @@ async function buildCollectionCache(
         collectionItemsByCollectionId[collection.id] = items;
       }));
 
-      // Load CMS content translations so dropdown items (Services, Solutions,
-      // etc.) render the correct label in non-default locales. Without this,
-      // getTranslatedItemFieldValue in buildPageNavigationCollectionItems
-      // cannot resolve any translation and falls back to raw FR values.
+      // Load CMS content translations for ALL collection items so that
+      // any downstream rendering (dropdowns, sliders, component instances)
+      // reads translated values regardless of which code path triggers the
+      // first lookup. Without this, non-navigation collections resolve
+      // untranslated values from the cache before resolveLayer has a chance
+      // to call ensureCmsTranslations later.
       if (translations && locale && !locale.is_default) {
-        const allItemIds = Object.values(collectionItemsByCollectionId)
-          .flatMap((items: any[]) => items.map((i: any) => i.id));
-        await ensureCmsTranslations(translations, allItemIds);
+        const allItemIds: string[] = [];
+        for (const items of result.itemsByCollection.values()) {
+          for (const item of items) {
+            if (item.id) allItemIds.push(item.id);
+          }
+        }
+        if (allItemIds.length > 0) {
+          await ensureCmsTranslations(translations, allItemIds);
+        }
       }
 
       const navigationItems = buildPageNavigationCollectionItems({
