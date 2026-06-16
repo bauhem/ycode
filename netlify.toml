@@ -30,3 +30,9 @@
   for = "/*"
   [headers.values]
     Cache-Control = "public, s-maxage=60, stale-while-revalidate=300"
+
+# Static assets: cache aggressively (swiper CSS, etc.)
+[[headers]]
+  for = "/swiper-minimal.css"
+  [headers.values]
+    Cache-Control = "public, max-age=604800, immutable"
