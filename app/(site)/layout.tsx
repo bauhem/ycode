@@ -80,7 +80,10 @@ export default async function SiteLayout({
   // smoothing — matching legacy output. Forcing `antialiased` here would render
   // glyphs thinner/lighter than the original site.
   return (
-    <RootLayoutShell headElements={headElements} bodyClassName="font-sans">
+    <RootLayoutShell
+      headElements={headElements} bodyClassName="font-sans"
+      lang={lang}
+    >
       {children}
     </RootLayoutShell>
   );
