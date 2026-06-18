@@ -44,6 +44,7 @@ import { resolveInlineVariables, resolveInlineVariablesFromData } from '@/lib/in
 import { formatFieldValue, resolveFieldFromSources } from '@/lib/cms-variables-utils';
 import { buildLayerTranslationKey, getTranslationByKey, hasValidTranslationValue, getTranslationValue, injectTranslatedText, applyCmsTranslations, translateComponentOverrides } from '@/lib/localisation-utils';
 import { formatDateFieldsInItemValues } from '@/lib/date-format-utils';
+import { mergeNestedReferenceValues } from '@/lib/page-fetcher-reference-utils';
 import { getSettingByKey } from '@/lib/repositories/settingsRepository';
 import { parseMultiAssetFieldValue, buildAssetVirtualValues } from '@/lib/multi-asset-utils';
 import { combineBgValues, mergeStaticBgVars } from '@/lib/tailwind-class-mapper';
@@ -1192,8 +1193,11 @@ async function resolveReferenceFields(
         translations
       );
 
-      // Merge nested values (they'll have the full path)
-      Object.assign(enhancedValues, nestedValues);
+      // Merge only nested values for this reference path. `resolveReferenceFields`
+      // returns both the referenced item's own top-level field IDs and nested
+      // dot-paths; copying the top-level keys here would overwrite the current
+      // dynamic page item values with sibling/referenced item values.
+      mergeNestedReferenceValues(enhancedValues, nestedValues, currentPath);
     } catch (error) {
       console.error(`Failed to resolve reference field ${field.id}:`, error);
     }
