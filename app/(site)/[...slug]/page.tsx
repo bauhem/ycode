@@ -291,7 +291,9 @@ export default async function Page({ params }: PageProps) {
     fetchCachedGlobalSettings(),
   ]);
 
-  // If page not found, trigger Next.js 404 (uses not-found.tsx)
+  // Page not found: hand off to the 404 boundary so the response carries a real
+  // HTTP 404 status (the custom 404 page is rendered there). Returning content
+  // here would emit a 200 "soft 404", which search engines penalize.
   if (!data) {
     notFound();
   }
@@ -446,6 +448,7 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
   if (!data) {
     return {
       title: 'Page Not Found',
+      robots: { index: false, follow: false },
     };
   }
 

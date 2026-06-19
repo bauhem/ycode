@@ -25,12 +25,18 @@ import { publishAssets, getUnpublishedAssets, hardDeleteSoftDeletedAssets } from
 import { publishAssetFolders, getUnpublishedAssetFolders, hardDeleteSoftDeletedAssetFolders } from '@/lib/repositories/assetFolderRepository';
 import { publishFonts } from '@/lib/repositories/fontRepository';
 import { getColorVariablesHash } from '@/lib/repositories/colorVariableRepository';
+import { publishGlobalVariables, hardDeleteSoftDeletedGlobalVariables } from '@/lib/repositories/globalVariableRepository';
 import { getSettingByKey, setSetting } from '@/lib/repositories/settingsRepository';
 import type { Setting, PublishStats, PublishTableStats } from '@/types';
 
 // Disable caching for this route
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
+
+// Publishing a large site (pages, collections, CSS regen, cache invalidation)
+// can exceed a platform's default serverless timeout. Raise to the max so big
+// sites don't time out mid-publish.
+export const maxDuration = 300;
 
 /** Group rows (fields, items, …) by their parent collection_id. */
 function groupByCollectionId<T extends { collection_id: string }>(rows: T[]): Map<string, T[]> {
@@ -70,6 +76,7 @@ interface PublishResult {
     assetsDeleted: number;
     locales: number;
     translations: number;
+    globalVariables: number;
     css: boolean;
   };
   published_at_setting: Setting;
@@ -99,6 +106,7 @@ function createEmptyStats(): PublishStats {
       assets: emptyTableStats(),
       locales: emptyTableStats(),
       translations: emptyTableStats(),
+      global_variables: emptyTableStats(),
       css: emptyTableStats(),
     },
   };
@@ -152,6 +160,7 @@ export async function POST(request: NextRequest) {
         assetsDeleted: 0,
         locales: 0,
         translations: 0,
+        globalVariables: 0,
         css: false,
       },
       published_at_setting: {
@@ -169,6 +178,7 @@ export async function POST(request: NextRequest) {
     const publishedCollectionIds: string[] = [];
     const changedComponentIds: string[] = [];
     const changedLayerStyleIds: string[] = [];
+    let globalsChanged = false;
     const deletedCollectionItemSlugs: Map<string, string[]> = new Map();
     const renamedPageOldRoutes: string[] = [];
     const unpublishedPageRoutes: string[] = [];
@@ -283,6 +293,7 @@ export async function POST(request: NextRequest) {
             const staleSlugsCombined = [
               ...(p?.deletedItemSlugs || []),
               ...(p?.renamedItemOldSlugs || []),
+              ...(p?.unpublishedItemSlugs || []),
             ];
             if (staleSlugsCombined.length > 0) {
               const existing = deletedCollectionItemSlugs.get(collectionPublish.collectionId) || [];
@@ -351,6 +362,7 @@ export async function POST(request: NextRequest) {
           const staleSlugsCombined = [
             ...(p?.deletedItemSlugs || []),
             ...(p?.renamedItemOldSlugs || []),
+            ...(p?.unpublishedItemSlugs || []),
           ];
           if (staleSlugsCombined.length > 0) {
             const existing = deletedCollectionItemSlugs.get(collection.id) || [];
@@ -497,6 +509,12 @@ export async function POST(request: NextRequest) {
         // Non-fatal
       }
 
+      try {
+        await hardDeleteSoftDeletedGlobalVariables();
+      } catch {
+        // Non-fatal
+      }
+
       // Asset folders
       {
         const stepStart = performance.now();
@@ -556,6 +574,23 @@ export async function POST(request: NextRequest) {
         }
       }
 
+      // Global variables (site-wide singletons — any change can affect any
+      // page, so a non-zero change count forces full cache invalidation below).
+      {
+        const stepStart = performance.now();
+        try {
+          const globalsResult = await publishGlobalVariables();
+          result.changes.globalVariables = globalsResult.count;
+          stats.tables.global_variables.added = globalsResult.count;
+          if (globalsResult.count > 0) {
+            globalsChanged = true;
+          }
+        } catch {
+          // Non-fatal
+        }
+        stats.tables.global_variables.durationMs = Math.round(performance.now() - stepStart);
+      }
+
       // Locales and translations
       if (publishLocales) {
         try {
@@ -611,6 +646,15 @@ export async function POST(request: NextRequest) {
       } catch (err) {
         globalChanged = true;
         globalChangedReason = `color hash check failed: ${err instanceof Error ? err.message : 'unknown'}`;
+      }
+
+      // Global variables can be injected into any page, so any published
+      // change requires invalidating every cached route.
+      if (globalsChanged) {
+        globalChanged = true;
+        globalChangedReason = globalChangedReason
+          ? `${globalChangedReason}; global variables changed`
+          : 'global variables changed';
       }
 
       // Locales/translations live in a separate table — their changes don't
@@ -878,7 +922,8 @@ export async function POST(request: NextRequest) {
       result.changes.assetFolders +
       result.changes.assets +
       result.changes.locales +
-      result.changes.translations;
+      result.changes.translations +
+      result.changes.globalVariables;
 
     return noCache({
       data: result,

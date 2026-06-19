@@ -1,16 +1,54 @@
 import Link from 'next/link';
-import { fetchErrorPage } from '@/lib/page-fetcher';
+import { unstable_cache } from 'next/cache';
+import { fetchErrorPage, slimPageData } from '@/lib/page-fetcher';
 import { fetchGlobalPageSettings } from '@/lib/generate-page-metadata';
+import { getSettingByKey } from '@/lib/repositories/settingsRepository';
+import { tenantStore } from '@/lib/supabase-server';
 import PageRenderer from '@/components/PageRenderer';
+import YcodeBadge from '@/components/YcodeBadge';
+
+/** Cached lookup of the user's custom 404 page, invalidated on publish. */
+function fetchCachedCustom404(tenantId?: string) {
+  return unstable_cache(
+    async () => {
+      const data = await fetchErrorPage(404, true, tenantId);
+      return data ? slimPageData(data) : null;
+    },
+    ['error-404'],
+    { tags: ['all-pages'], revalidate: false }
+  )();
+}
 
 /**
- * Custom 404 page with proper HTTP 404 status.
- * Fetches the custom 404 error page from the database.
+ * 404 boundary for public pages. Renders the user's custom 404 page when one
+ * exists, otherwise a default fallback. Next.js serves this with a real HTTP
+ * 404 status, which avoids soft-404 SEO penalties from search engines.
  */
 export default async function NotFound() {
-  let pageData = null;
-  let globalSettings = null;
+  const tenantId = tenantStore.getStore();
 
+  const errorPageData = await fetchCachedCustom404(tenantId).catch(() => null);
+
+  if (errorPageData) {
+    const globalSettings = await fetchGlobalPageSettings().catch(() => null);
+    const { page, pageLayers, components } = errorPageData;
+
+    return (
+      <PageRenderer
+        page={page}
+        layers={pageLayers.layers || []}
+        components={components}
+        generatedCss={globalSettings?.publishedCss || undefined}
+        colorVariablesCss={globalSettings?.colorVariablesCss || undefined}
+        globalCustomCodeHead={globalSettings?.globalCustomCodeHead}
+        globalCustomCodeBody={globalSettings?.globalCustomCodeBody}
+        ycodeBadge={globalSettings?.ycodeBadge ?? true}
+      />
+    );
+  }
+
+  let pageData: Awaited<ReturnType<typeof fetchErrorPage>> | null = null;
+  let globalSettings: Awaited<ReturnType<typeof fetchGlobalPageSettings>> | null = null;
   try {
     [pageData, globalSettings] = await Promise.all([
       fetchErrorPage(404, true),

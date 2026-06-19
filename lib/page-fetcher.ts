@@ -46,13 +46,15 @@ import { buildLayerTranslationKey, getTranslationByKey, hasValidTranslationValue
 import { formatDateFieldsInItemValues } from '@/lib/date-format-utils';
 import { mergeNestedReferenceValues } from '@/lib/page-fetcher-reference-utils';
 import { getSettingByKey } from '@/lib/repositories/settingsRepository';
+import { getAllGlobalVariables } from '@/lib/repositories/globalVariableRepository';
 import { parseMultiAssetFieldValue, buildAssetVirtualValues } from '@/lib/multi-asset-utils';
 import { combineBgValues, mergeStaticBgVars } from '@/lib/tailwind-class-mapper';
 import { generateInitialAnimationCSS } from '@/lib/animation-utils';
 import { getMapIframeProps, DEFAULT_MAP_SETTINGS } from '@/lib/map-utils';
 import { getMapboxAccessToken, getGoogleMapsEmbedApiKey } from '@/lib/map-server';
 import { getAssetsByIds } from '@/lib/repositories/assetRepository';
-import { isVirtualAssetField, findDisplayField, hasDynamicDateRule, isDynamicDateCondition } from '@/lib/collection-field-utils';
+import { isVirtualAssetField, findDisplayField, hasDynamicDateRule, isDynamicDateCondition, buildGlobalsMetaMap, buildGlobalsValueMap, mergeGlobalsIntoFieldData, type GlobalFieldMeta } from '@/lib/collection-field-utils';
+import { getDefaultFormatId, isFormatValidForFieldType } from '@/lib/variable-format-utils';
 import type { DynamicVisibilityCondition, FieldVariable, AssetVariable, DynamicTextVariable, LinkSettings } from '@/types';
 import type { DesignColorVariable } from '@/types';
 
@@ -80,6 +82,22 @@ function createResolvedAssetVariable(
   fallback: FieldVariable
 ): FieldVariable | AssetVariable | DynamicTextVariable {
   if (!resolvedValue) return fallback;
+
+  // A link/url field bound as a media source stores a serialized
+  // CollectionLinkValue. Unwrap it to the underlying URL (literal src) or
+  // asset id before building the variable; otherwise the JSON blob would be
+  // treated as an asset id and fail to resolve.
+  const linkValue = parseCollectionLinkValue(resolvedValue);
+  if (linkValue) {
+    if (linkValue.type === 'url') {
+      return linkValue.url ? createDynamicTextVariable(linkValue.url) : fallback;
+    }
+    if (linkValue.type === 'asset') {
+      return linkValue.asset?.id ? createAssetVariable(linkValue.asset.id) : fallback;
+    }
+    return fallback;
+  }
+
   return isVirtualAssetField(fieldId)
     ? createDynamicTextVariable(resolvedValue)
     : createAssetVariable(resolvedValue);
@@ -375,15 +393,17 @@ async function getCollectionItemBySlug(
             // Extract item ID from translation key
             const itemId = translation.source_id;
 
-            // Verify this item belongs to the correct collection
-            const { data: item, error: itemError } = await supabase
+            // Verify this item belongs to the correct collection. On the public
+            // path also require is_publishable so unpublished items can't resolve.
+            let itemQuery = supabase
               .from('collection_items')
               .select('*')
               .eq('id', itemId)
               .eq('collection_id', collectionId)
               .eq('is_published', isPublished)
-              .is('deleted_at', null)
-              .single();
+              .is('deleted_at', null);
+            if (isPublished) itemQuery = itemQuery.eq('is_publishable', true);
+            const { data: item, error: itemError } = await itemQuery.single();
 
             if (!itemError && item) {
               // Found the item via translation - return it with all values
@@ -432,15 +452,17 @@ async function getCollectionItemBySlug(
       return null;
     }
 
-    // Verify the item belongs to the correct collection
-    const { data: item, error: itemError } = await supabase
+    // Verify the item belongs to the correct collection. On the public path
+    // also require is_publishable so unpublished items can't resolve.
+    let itemQuery = supabase
       .from('collection_items')
       .select('*')
       .eq('id', itemId)
       .eq('collection_id', collectionId)
       .eq('is_published', isPublished)
-      .is('deleted_at', null)
-      .single();
+      .is('deleted_at', null);
+    if (isPublished) itemQuery = itemQuery.eq('is_publishable', true);
+    const { data: item, error: itemError } = await itemQuery.single();
 
     if (itemError || !item) {
       return null;
@@ -718,9 +740,13 @@ async function fetchPageByPathInternal(
 
             // Inject dynamic page collection data into layers (including expanded component layers)
             // This resolves inline variables like "Name → Location" on the page
+            const [dynamicPageGlobals, dynamicPageGlobalsMeta] = await Promise.all([
+              buildGlobalsDataMap(isPublished),
+              buildGlobalsMetaDataMap(isPublished),
+            ]);
             const layersWithInjectedData = await Promise.all(
               layersWithComponents.map((layer: Layer) =>
-                injectCollectionData(layer, enhancedItemValues, collectionFields, isPublished, undefined, rawItemValues, timezone)
+                injectCollectionData(layer, enhancedItemValues, collectionFields, isPublished, undefined, rawItemValues, timezone, dynamicPageGlobals, dynamicPageGlobalsMeta)
               )
             );
 
@@ -1331,6 +1357,29 @@ async function batchResolveReferenceFields(
  * @param rawItemValues - Unformatted values (ISO dates) for applying custom format presets
  * @returns Layer with resolved field values
  */
+/**
+ * Build a flat `globalId -> value` map of site-wide global variables for the
+ * given publish mode. Used to merge globals into collection/page item values so
+ * global-source bindings resolve at build time (published/preview SSR).
+ */
+async function buildGlobalsDataMap(isPublished: boolean): Promise<Record<string, string>> {
+  try {
+    return buildGlobalsValueMap(await getAllGlobalVariables(isPublished));
+  } catch (error) {
+    console.error('[page-fetcher] Failed to load global variables:', error);
+    return {};
+  }
+}
+
+async function buildGlobalsMetaDataMap(isPublished: boolean): Promise<Record<string, GlobalFieldMeta>> {
+  try {
+    return buildGlobalsMetaMap(await getAllGlobalVariables(isPublished));
+  } catch (error) {
+    console.error('[page-fetcher] Failed to load global variable metadata:', error);
+    return {};
+  }
+}
+
 async function injectCollectionData(
   layer: Layer,
   itemValues: Record<string, string>,
@@ -1338,13 +1387,19 @@ async function injectCollectionData(
   isPublished: boolean = true,
   layerDataMap?: Record<string, Record<string, string>>,
   rawItemValues?: Record<string, string>,
-  timezone: string = 'UTC'
+  timezone: string = 'UTC',
+  globalsData?: Record<string, string>,
+  globalsMeta?: Record<string, GlobalFieldMeta>
 ): Promise<Layer> {
   // Callers (resolveCollectionLayers, fetchPageByPath) already run
   // resolveReferenceFields before passing values here. Re-resolving on
   // every recursive child would fire O(N × D × R) redundant Supabase
   // queries that overwhelm the connection and hang the request.
-  const enhancedValues = itemValues;
+  // Merge site-wide globals so global-source bindings inside collection
+  // loops/dynamic pages resolve at build time (item values win on collision,
+  // though global ids are unique UUIDs so collisions never happen). itemValues
+  // is always defined here, so the merged result is never undefined.
+  const enhancedValues = mergeGlobalsIntoFieldData(itemValues, globalsData)!;
 
   const updates: Partial<Layer> = {};
   // Start with all original variables; each section overwrites only its own key
@@ -1368,7 +1423,7 @@ async function injectCollectionData(
           };
         }
 
-        const resolvedContent = resolveRichTextVariables(content, enhancedValues, layerDataMap, rawItemValues, timezone);
+        const resolvedContent = resolveRichTextVariables(content, enhancedValues, layerDataMap, rawItemValues, timezone, globalsMeta);
         resolvedVars.text = {
           type: 'dynamic_rich_text',
           data: { content: resolvedContent },
@@ -1521,7 +1576,7 @@ async function injectCollectionData(
         if (child.variables?.collection?.id || child._collectionItemValues) {
           return Promise.resolve(child);
         }
-        return injectCollectionData(child, enhancedValues, fields, isPublished, layerDataMap, rawItemValues, timezone);
+        return injectCollectionData(child, enhancedValues, fields, isPublished, layerDataMap, rawItemValues, timezone, globalsData, globalsMeta);
       })
     );
     updates.children = resolvedChildren;
@@ -1642,7 +1697,8 @@ function resolveRichTextVariables(
   itemValues: Record<string, string>,
   layerDataMap?: Record<string, Record<string, string>>,
   rawItemValues?: Record<string, string>,
-  timezone: string = 'UTC'
+  timezone: string = 'UTC',
+  globalsMeta?: Record<string, GlobalFieldMeta>
 ): any {
   if (!content || typeof content !== 'object') {
     return content;
@@ -1653,7 +1709,8 @@ function resolveRichTextVariables(
     const variable = content.attrs?.variable;
     if (variable?.type === 'field' && variable.data?.field_id) {
       const fieldId = variable.data.field_id;
-      const fieldType = variable.data.field_type;
+      const globalMeta = variable.data.source === 'global' ? globalsMeta?.[fieldId] : undefined;
+      const fieldType = globalMeta?.type ?? variable.data.field_type;
       const relationships = variable.data.relationships || [];
       const collectionLayerId = variable.data.collection_layer_id;
 
@@ -1671,10 +1728,22 @@ function resolveRichTextVariables(
         value = layerDataMap[collectionLayerId][fullPath];
       }
 
+      // Collection rich_text values are pre-parsed into Tiptap objects by
+      // castValue, but globals store their value as a raw JSON string. Parse
+      // string-encoded rich_text here so global rich_text variables expand into
+      // block structure instead of rendering as literal JSON.
+      if (fieldType === 'rich_text' && typeof value === 'string') {
+        try {
+          value = JSON.parse(value);
+        } catch {
+          // Leave as-is; falls through to plain-text rendering below.
+        }
+      }
+
       // Handle rich_text fields - preserve block structure for proper rendering
       if (fieldType === 'rich_text' && isTiptapDoc(value)) {
         const resolvedBlocks = value.content.map((block: any) =>
-          resolveRichTextVariables(block, itemValues, layerDataMap, rawItemValues, timezone)
+          resolveRichTextVariables(block, itemValues, layerDataMap, rawItemValues, timezone, globalsMeta)
         );
         return resolvedBlocks.flat();
       }
@@ -1688,16 +1757,21 @@ function resolveRichTextVariables(
         };
       }
 
-      // Apply custom format using raw (unformatted) values when available
-      // Date values in itemValues are pre-formatted by formatDateFieldsInItemValues,
-      // so custom format presets need the original ISO string from rawItemValues
-      const format = variable.data.format;
+      // Apply custom format using raw (unformatted) values when available.
+      // Collection date values in itemValues are pre-formatted by
+      // formatDateFieldsInItemValues, so custom presets need the original ISO
+      // string from rawItemValues. Globals aren't present in rawItemValues but
+      // store their raw value directly, so fall back to the resolved value.
+      const storedFormat = variable.data.format;
+      const format = globalMeta && !isFormatValidForFieldType(storedFormat, fieldType)
+        ? getDefaultFormatId(fieldType)
+        : storedFormat;
       let textValue: string;
-      if (format && rawItemValues) {
-        const rawValue = rawItemValues[fullPath];
+      if (format) {
+        const rawValue = rawItemValues?.[fullPath] ?? value;
         textValue = rawValue != null
           ? formatFieldValue(rawValue, fieldType, timezone, format)
-          : (value != null ? String(value) : '');
+          : '';
       } else {
         textValue = value != null ? String(value) : '';
       }
@@ -1715,7 +1789,7 @@ function resolveRichTextVariables(
   if (Array.isArray(content)) {
     // Flatten arrays that may contain nested arrays from rich_text expansion
     return content.flatMap(node => {
-      const resolved = resolveRichTextVariables(node, itemValues, layerDataMap, rawItemValues, timezone);
+      const resolved = resolveRichTextVariables(node, itemValues, layerDataMap, rawItemValues, timezone, globalsMeta);
       return Array.isArray(resolved) ? resolved : [resolved];
     });
   }
@@ -1726,11 +1800,11 @@ function resolveRichTextVariables(
     if (key === 'content' && Array.isArray(content[key])) {
       // Flatten the content array in case of expanded rich_text nodes
       result[key] = content[key].flatMap((node: any) => {
-        const resolved = resolveRichTextVariables(node, itemValues, layerDataMap, rawItemValues, timezone);
+        const resolved = resolveRichTextVariables(node, itemValues, layerDataMap, rawItemValues, timezone, globalsMeta);
         return Array.isArray(resolved) ? resolved : [resolved];
       });
     } else if (typeof content[key] === 'object' && content[key] !== null) {
-      result[key] = resolveRichTextVariables(content[key], itemValues, layerDataMap, rawItemValues, timezone);
+      result[key] = resolveRichTextVariables(content[key], itemValues, layerDataMap, rawItemValues, timezone, globalsMeta);
     } else {
       result[key] = content[key];
     }
@@ -2042,16 +2116,32 @@ interface CollectionDataCache {
  *
  * Stops recursion at child layers that define their own collection scope.
  */
-function collectBoundFieldIds(layers: Layer[]): { fieldIds: Set<string>; fieldPaths: Set<string> } {
+function collectBoundFieldIds(layers: Layer[]): { fieldIds: Set<string>; fieldPaths: Set<string>; pathsByLayerId: Map<string, Set<string>> } {
   const fieldIds = new Set<string>();
   const fieldPaths = new Set<string>();
+  // Paths bound with an explicit collection_layer_id pointing at an ancestor
+  // collection layer (e.g. a binding inside a nested collection that reads a
+  // field from the enclosing collection). These must be re-attributed to that
+  // ancestor so its reference paths get resolved on SSR.
+  const pathsByLayerId = new Map<string, Set<string>>();
 
-  function addFieldVariable(fv: { type: 'field'; data: { field_id: string | null; relationships?: string[] } }) {
+  function addFieldVariable(fv: { type: 'field'; data: { field_id: string | null; relationships?: string[]; collection_layer_id?: string } }) {
     const fid = fv.data.field_id;
     if (!fid) return;
     fieldIds.add(fid);
     const rels = fv.data.relationships || [];
-    fieldPaths.add(rels.length > 0 ? [fid, ...rels].join('.') : fid);
+    const path = rels.length > 0 ? [fid, ...rels].join('.') : fid;
+    fieldPaths.add(path);
+
+    const clid = fv.data.collection_layer_id;
+    if (clid) {
+      let set = pathsByLayerId.get(clid);
+      if (!set) {
+        set = new Set<string>();
+        pathsByLayerId.set(clid, set);
+      }
+      set.add(path);
+    }
   }
 
   function scanInlineVariableTags(html: string) {
@@ -2213,7 +2303,7 @@ function collectBoundFieldIds(layers: Layer[]): { fieldIds: Set<string>; fieldPa
   }
 
   layers.forEach(scanLayer);
-  return { fieldIds, fieldPaths };
+  return { fieldIds, fieldPaths, pathsByLayerId };
 }
 
 function collectAllCollectionIds(layers: Layer[]): Set<string> {
@@ -2259,215 +2349,128 @@ async function buildCollectionCache(
     : Promise.resolve(null);
 
   const ids = Array.from(databaseCollectionIds);
-  let result: CollectionDataCache = empty;
+  if (ids.length > 0 && !client) return empty;
+  const result: CollectionDataCache = empty;
 
-  if (ids.length === 0) {
-    await warmKnexPromise;
-  } else {
-    // Phase 1: Fetch fields for all collections (needed to discover reference collections)
-    const { data: nonComputedFieldsData } = await client!
-      .from('collection_fields')
-      .select('*')
-      .in('collection_id', ids)
+  // Phase 1: Fetch fields for all collections (needed to discover reference collections)
+  const { data: nonComputedFieldsData } = await client!
+    .from('collection_fields')
+    .select('*')
+    .in('collection_id', ids)
+    .eq('is_published', isPublished)
+    .is('deleted_at', null)
+    .eq('is_computed', false)
+    .order('order', { ascending: true })
+    .limit(5000);
+
+  // Count fields are computed but their config is needed during render so layers
+  // bound to a count value can resolve correctly. Pull them in alongside the
+  // regular fields. Other computed types (e.g. status) are still excluded.
+  const { data: countFieldsData } = await client!
+    .from('collection_fields')
+    .select('*')
+    .in('collection_id', ids)
+    .eq('is_published', isPublished)
+    .is('deleted_at', null)
+    .eq('type', 'count')
+    .limit(5000);
+
+  const fieldsData = [...(nonComputedFieldsData || []), ...(countFieldsData || [])];
+
+  // Discover referenced collections so we can pre-fetch their data too.
+  // When boundFieldIds is supplied, only follow reference fields that are bound.
+  const refCollectionIds: string[] = [];
+  const refFieldIdToCollectionId = new Map<string, string>();
+  for (const f of fieldsData || []) {
+    if (f.type === 'reference' && f.reference_collection_id) {
+      if (!boundFieldIds || boundFieldIds.has(f.id)) {
+        // Always map the reference field to its target so relationship paths
+        // (refFieldId.targetFieldId) resolve. Only schedule a separate items
+        // fetch when the target isn't already a primary collection — otherwise
+        // its items are loaded by the primary fetch (with target fields merged
+        // into primaryFieldFilter below).
+        refFieldIdToCollectionId.set(f.id, f.reference_collection_id);
+        if (!collectionIds.has(f.reference_collection_id)) {
+          refCollectionIds.push(f.reference_collection_id);
+        }
+      }
+    }
+  }
+
+  // Build per-referenced-collection field filters from bound fieldPaths.
+  // For a path "refFieldId.targetFieldId", targetFieldId is needed from the ref collection.
+  const refCollectionBoundFieldIds = new Map<string, Set<string>>();
+  if (boundFieldPaths) {
+    for (const path of boundFieldPaths) {
+      const parts = path.split('.');
+      if (parts.length >= 2) {
+        const refFieldId = parts[0];
+        const targetFieldId = parts[1];
+        const refCollId = refFieldIdToCollectionId.get(refFieldId);
+        if (refCollId) {
+          if (!refCollectionBoundFieldIds.has(refCollId)) refCollectionBoundFieldIds.set(refCollId, new Set());
+          refCollectionBoundFieldIds.get(refCollId)!.add(targetFieldId);
+        }
+      }
+    }
+  }
+
+  // Phase 2: Fetch ref collection fields + items in parallel.
+  // Items are fetched per-collection because a single `.in('collection_id', [...])`
+  // query is bounded by Supabase/PostgREST's `db-max-rows` setting (often 1000),
+  // so a large collection can starve smaller ones in the same page.
+  // We chunk via `.range()` past the 1000-row cap, stopping once we hit
+  // PER_COLLECTION_LIMIT or run out of rows.
+  const allCollIds = [...ids, ...refCollectionIds];
+  const PER_COLLECTION_LIMIT = 5000;
+  const ITEMS_PAGE_SIZE = 1000;
+
+  const fetchItemsForCollection = async (collectionId: string) => {
+    const all: any[] = [];
+    for (let from = 0; from < PER_COLLECTION_LIMIT; from += ITEMS_PAGE_SIZE) {
+      const to = Math.min(from + ITEMS_PAGE_SIZE - 1, PER_COLLECTION_LIMIT - 1);
+      let q = client!
+        .from('collection_items')
+        .select('*')
+        .eq('collection_id', collectionId)
+        .eq('is_published', isPublished)
+        .is('deleted_at', null)
+        .order('manual_order', { ascending: true })
+        .order('created_at', { ascending: false })
+        .range(from, to);
+      if (isPublished) q = q.eq('is_publishable', true);
+      const { data, error } = await q;
+      if (error) throw new Error(`Failed to fetch items: ${error.message}`);
+      if (!data || data.length === 0) break;
+      all.push(...data);
+      if (data.length < (to - from + 1)) break;
+    }
+    return all;
+  };
+
+  const itemsPromise = Promise.all(allCollIds.map(fetchItemsForCollection))
+    .then(results => ({ data: results.flat(), error: null as unknown }))
+    .catch(error => ({ data: [] as any[], error }));
+
+  const refFieldsPromise = refCollectionIds.length > 0
+    ? client!.from('collection_fields').select('*')
+      .in('collection_id', refCollectionIds)
       .eq('is_published', isPublished)
       .is('deleted_at', null)
       .eq('is_computed', false)
       .order('order', { ascending: true })
-      .limit(5000);
+      .limit(5000)
+    : Promise.resolve({ data: [] as any[] });
 
-    // Count fields are computed but their config is needed during render so layers
-    // bound to a count value render the live number on SSR. Pull them in alongside the
-    // regular fields. Other computed types (e.g. status) are still excluded.
-    const { data: countFieldsData } = await client!
-      .from('collection_fields')
-      .select('*')
-      .in('collection_id', ids)
-      .eq('is_published', isPublished)
-      .is('deleted_at', null)
-      .eq('type', 'count')
-      .limit(5000);
-
-    const fieldsData = [...(nonComputedFieldsData || []), ...(countFieldsData || [])];
-
-    // Discover referenced collections so we can pre-fetch their data too.
-    // When boundFieldIds is supplied, only follow reference fields that are bound.
-    const refCollectionIds: string[] = [];
-    const refFieldIdToCollectionId = new Map<string, string>();
-    for (const f of fieldsData || []) {
-      if (f.type === 'reference' && f.reference_collection_id && !collectionIds.has(f.reference_collection_id)) {
-        if (!boundFieldIds || boundFieldIds.has(f.id)) {
-          refCollectionIds.push(f.reference_collection_id);
-          refFieldIdToCollectionId.set(f.id, f.reference_collection_id);
-        }
-      }
-    }
-
-    // Build per-referenced-collection field filters from bound fieldPaths.
-    // For a path "refFieldId.targetFieldId", targetFieldId is needed from the ref collection.
-    const refCollectionBoundFieldIds = new Map<string, Set<string>>();
-    if (boundFieldPaths) {
-      for (const path of boundFieldPaths) {
-        const parts = path.split('.');
-        if (parts.length >= 2) {
-          const refFieldId = parts[0];
-          const targetFieldId = parts[1];
-          const refCollId = refFieldIdToCollectionId.get(refFieldId);
-          if (refCollId) {
-            if (!refCollectionBoundFieldIds.has(refCollId)) refCollectionBoundFieldIds.set(refCollId, new Set());
-            refCollectionBoundFieldIds.get(refCollId)!.add(targetFieldId);
-          }
-        }
-      }
-    }
-
-    // Phase 2: Fetch ref collection fields + items in parallel.
-    // Items are fetched per-collection because a single `.in('collection_id', [...])`
-    // query is bounded by Supabase/PostgREST's `db-max-rows` setting (often 1000),
-    // so a large collection can starve smaller ones in the same page.
-    // We chunk via `.range()` past the 1000-row cap, stopping once we hit
-    // PER_COLLECTION_LIMIT or run out of rows.
-    const allCollIds = [...ids, ...refCollectionIds];
-    const PER_COLLECTION_LIMIT = 5000;
-    const ITEMS_PAGE_SIZE = 1000;
-
-    const fetchItemsForCollection = async (collectionId: string) => {
-      const all: CollectionItem[] = [];
-
-      for (let from = 0; from < PER_COLLECTION_LIMIT; from += ITEMS_PAGE_SIZE) {
-        const to = Math.min(from + ITEMS_PAGE_SIZE - 1, PER_COLLECTION_LIMIT - 1);
-        let query = client!
-          .from('collection_items')
-          .select('*')
-          .eq('collection_id', collectionId)
-          .eq('is_published', isPublished)
-          .is('deleted_at', null)
-          .order('manual_order', { ascending: true })
-          .order('created_at', { ascending: false })
-          .range(from, to);
-
-        if (isPublished) {
-          query = query.eq('is_publishable', true);
-        }
-
-        const { data, error } = await query;
-        if (error) throw new Error(`Failed to fetch collection items: ${error.message}`);
-        if (!data || data.length === 0) break;
-
-        all.push(...data);
-        if (data.length < to - from + 1) break;
-      }
-
-      return all;
-    };
-
-    const itemsPromise = Promise.all(allCollIds.map(fetchItemsForCollection))
-      .then(results => ({ data: results.flat() }));
-
-    const refFieldsPromise = refCollectionIds.length > 0
-      ? client!.from('collection_fields').select('*')
-        .in('collection_id', refCollectionIds)
-        .eq('is_published', isPublished)
-        .is('deleted_at', null)
-        .eq('is_computed', false)
-        .order('order', { ascending: true })
-        .limit(5000)
-      : Promise.resolve({ data: [] as CollectionField[] });
-
-    const [{ data: itemsData }, { data: refFieldsRaw }] = await Promise.all([itemsPromise, refFieldsPromise]);
-
-    // Build field structures
-    const allFieldsData = [...(fieldsData || []), ...(refFieldsRaw || [])];
-    const fieldsByCollection = new Map<string, CollectionField[]>();
-    const fieldTypeMap: Record<string, string> = {};
-    for (const f of allFieldsData) {
-      if (!fieldsByCollection.has(f.collection_id)) fieldsByCollection.set(f.collection_id, []);
-      fieldsByCollection.get(f.collection_id)!.push(f);
-      fieldTypeMap[f.id] = f.type;
-    }
-
-    // Phase 3: Fetch values — filter by bound field IDs when available
-    await warmKnexPromise;
-
-    // Partition items: bound primary (have field filter) vs unbound primary (optionsSource etc.) vs ref
-    const boundPrimaryItemIds: string[] = [];
-    const unboundPrimaryItemIds: string[] = [];
-    const refItemIds: string[] = [];
-    for (const item of itemsData || []) {
-      if (!collectionIds.has(item.collection_id)) {
-        refItemIds.push(item.id);
-      } else if (boundCollectionIds?.has(item.collection_id)) {
-        boundPrimaryItemIds.push(item.id);
-      } else {
-        unboundPrimaryItemIds.push(item.id);
-      }
-    }
-
-    // Slug fields are always needed for URL building
-    const slugFieldIds: string[] = [];
-    for (const [, fields] of fieldsByCollection) {
-      const slug = fields.find(f => f.key === 'slug');
-      if (slug) slugFieldIds.push(slug.id);
-    }
-
-    // Build the field filter for primary collection items
-    let primaryFieldFilter: string[] | undefined;
-    if (boundFieldIds && boundFieldIds.size > 0) {
-      const merged = new Set(boundFieldIds);
-      for (const sid of slugFieldIds) merged.add(sid);
-      primaryFieldFilter = Array.from(merged);
-    }
-
-    // Build per-ref-collection field filter and merge into a single array for the batch call
-    let refFieldFilter: string[] | undefined;
-    if (refCollectionBoundFieldIds.size > 0) {
-      const merged = new Set<string>();
-      for (const [, fids] of refCollectionBoundFieldIds) {
-        for (const fid of fids) merged.add(fid);
-      }
-      for (const sid of slugFieldIds) merged.add(sid);
-      refFieldFilter = Array.from(merged);
-    }
-
-    // Fetch values: filtered for bound collections, unfiltered for optionsSource/other collections
-    const valueFetches: Promise<Record<string, Record<string, any>>>[] = [];
-    if (boundPrimaryItemIds.length > 0) {
-      valueFetches.push(getValuesByItemIds(boundPrimaryItemIds, isPublished, fieldTypeMap, primaryFieldFilter));
-    }
-    if (unboundPrimaryItemIds.length > 0) {
-      valueFetches.push(getValuesByItemIds(unboundPrimaryItemIds, isPublished, fieldTypeMap));
-    }
-    if (refItemIds.length > 0) {
-      valueFetches.push(getValuesByItemIds(refItemIds, isPublished, fieldTypeMap, refFieldFilter));
-    }
-    const valuesByItem: Record<string, Record<string, any>> = {};
-    if (valueFetches.length > 0) {
-      const results = await Promise.all(valueFetches);
-      for (const r of results) Object.assign(valuesByItem, r);
-    }
-
-    // Build items-with-values grouped by collection + flat index
-    const itemsByCollection = new Map<string, CollectionItemWithValues[]>();
-    const totalByCollection = new Map<string, number>();
-    const itemsById = new Map<string, CollectionItemWithValues>();
-
-    for (const item of itemsData || []) {
-      const withValues: CollectionItemWithValues = { ...item, values: valuesByItem[item.id] || {} };
-      if (!itemsByCollection.has(item.collection_id)) {
-        itemsByCollection.set(item.collection_id, []);
-        totalByCollection.set(item.collection_id, 0);
-      }
-      itemsByCollection.get(item.collection_id)!.push(withValues);
-      totalByCollection.set(item.collection_id, totalByCollection.get(item.collection_id)! + 1);
-      itemsById.set(item.id, withValues);
-    }
-
-    // Ensure every requested collection has an entry
-    for (const id of allCollIds) {
-      if (!itemsByCollection.has(id)) { itemsByCollection.set(id, []); totalByCollection.set(id, 0); }
-      if (!fieldsByCollection.has(id)) fieldsByCollection.set(id, []);
-    }
-
-    result = { itemsByCollection, totalByCollection, fieldsByCollection, fieldTypeMap, itemsById };
+  // Await all queries and build field structures
+  const [{ data: itemsData }, { data: refFieldsRaw }] = await Promise.all([itemsPromise, refFieldsPromise]);
+  const allFieldsData = [...(fieldsData || []), ...(refFieldsRaw || [])];
+  const fieldsByCollection = new Map<string, CollectionField[]>();
+  const fieldTypeMap: Record<string, string> = {};
+  for (const f of allFieldsData) {
+    if (!fieldsByCollection.has(f.collection_id)) fieldsByCollection.set(f.collection_id, []);
+    fieldsByCollection.get(f.collection_id)!.push(f);
+    fieldTypeMap[f.id] = f.type;
   }
 
   if (needsPageNavigation) {
@@ -2574,7 +2577,108 @@ async function buildCollectionCache(
     }
   }
 
-  return result;
+  // Phase 3: Fetch values — filter by bound field IDs when available
+  await warmKnexPromise;
+
+  // Partition items: bound primary (have field filter) vs unbound primary (optionsSource etc.) vs ref
+  const boundPrimaryItemIds: string[] = [];
+  const unboundPrimaryItemIds: string[] = [];
+  const refItemIds: string[] = [];
+  for (const item of itemsData || []) {
+    if (!collectionIds.has(item.collection_id)) {
+      refItemIds.push(item.id);
+    } else if (boundCollectionIds?.has(item.collection_id)) {
+      boundPrimaryItemIds.push(item.id);
+    } else {
+      unboundPrimaryItemIds.push(item.id);
+    }
+  }
+
+  // Slug fields are always needed for URL building
+  const slugFieldIds: string[] = [];
+  for (const [, fields] of fieldsByCollection) {
+    const slug = fields.find(f => f.key === 'slug');
+    if (slug) slugFieldIds.push(slug.id);
+  }
+
+  // Build the field filter for primary collection items
+  let primaryFieldFilter: string[] | undefined;
+  if (boundFieldIds && boundFieldIds.size > 0) {
+    const merged = new Set(boundFieldIds);
+    for (const sid of slugFieldIds) merged.add(sid);
+    for (const [, fids] of refCollectionBoundFieldIds) {
+      for (const fid of fids) merged.add(fid);
+    }
+    primaryFieldFilter = Array.from(merged);
+  }
+
+  // Build per-ref-collection field filter and merge into a single array for the batch call
+  let refFieldFilter: string[] | undefined;
+  if (refCollectionBoundFieldIds.size > 0) {
+    const merged = new Set<string>();
+    for (const [, fids] of refCollectionBoundFieldIds) {
+      for (const fid of fids) merged.add(fid);
+    }
+    for (const sid of slugFieldIds) merged.add(sid);
+    refFieldFilter = Array.from(merged);
+  }
+
+  // Fetch values: filtered for bound collections, unfiltered for optionsSource/other collections
+  const valueFetches: Promise<Record<string, Record<string, any>>>[] = [];
+  if (boundPrimaryItemIds.length > 0) {
+    valueFetches.push(getValuesByItemIds(boundPrimaryItemIds, isPublished, fieldTypeMap, primaryFieldFilter));
+  }
+  if (unboundPrimaryItemIds.length > 0) {
+    valueFetches.push(getValuesByItemIds(unboundPrimaryItemIds, isPublished, fieldTypeMap));
+  }
+  if (refItemIds.length > 0) {
+    valueFetches.push(getValuesByItemIds(refItemIds, isPublished, fieldTypeMap, refFieldFilter));
+  }
+  const valuesByItem: Record<string, Record<string, any>> = {};
+  if (valueFetches.length > 0) {
+    const results = await Promise.all(valueFetches);
+    for (const r of results) Object.assign(valuesByItem, r);
+  }
+
+  // Build items-with-values grouped by collection + flat index
+  const itemsByCollection = new Map<string, CollectionItemWithValues[]>();
+  const totalByCollection = new Map<string, number>();
+  const itemsById = new Map<string, CollectionItemWithValues>();
+
+  for (const item of itemsData || []) {
+    const withValues: CollectionItemWithValues = { ...item, values: valuesByItem[item.id] || {} };
+    if (!itemsByCollection.has(item.collection_id)) {
+      itemsByCollection.set(item.collection_id, []);
+      totalByCollection.set(item.collection_id, 0);
+    }
+    itemsByCollection.get(item.collection_id)!.push(withValues);
+    totalByCollection.set(item.collection_id, totalByCollection.get(item.collection_id)! + 1);
+    itemsById.set(item.id, withValues);
+  }
+
+  // Ensure every requested collection has an entry
+  for (const id of allCollIds) {
+    if (!itemsByCollection.has(id)) { itemsByCollection.set(id, []); totalByCollection.set(id, 0); }
+    if (!fieldsByCollection.has(id)) fieldsByCollection.set(id, []);
+  }
+
+  // Merge page navigation data (built above) into the Phase 3 return object
+  if (needsPageNavigation) {
+    const navItems = result.itemsByCollection.get(PAGE_NAVIGATION_COLLECTION_ID);
+    if (navItems) {
+      itemsByCollection.set(PAGE_NAVIGATION_COLLECTION_ID, navItems);
+      totalByCollection.set(PAGE_NAVIGATION_COLLECTION_ID, navItems.length);
+      fieldsByCollection.set(PAGE_NAVIGATION_COLLECTION_ID, PAGE_NAVIGATION_FIELDS);
+      for (const field of PAGE_NAVIGATION_FIELDS) {
+        fieldTypeMap[field.id] = field.type;
+      }
+      for (const item of navItems) {
+        itemsById.set(item.id, item as CollectionItemWithValues);
+      }
+    }
+  }
+
+  return { itemsByCollection, totalByCollection, fieldsByCollection, fieldTypeMap, itemsById };
 }
 
 /** Return a shallow copy of `layer` without its `children`. */
@@ -2612,6 +2716,13 @@ export async function resolveCollectionLayers(
     timezone = (await getSettingByKey('timezone') as string | null) || 'UTC';
   }
 
+  // Fetch site-wide globals once for the whole tree so global-source bindings
+  // inside collection loops resolve at build time. Keyed by id (== field_id).
+  const [globalsData, globalsMeta] = await Promise.all([
+    buildGlobalsDataMap(isPublished),
+    buildGlobalsMetaDataMap(isPublished),
+  ]);
+
   // Scan all collection layers to determine which field IDs are actually used in templates
   const allCollectionIds = collectAllCollectionIds(layers);
   const mergedBoundFieldIds = new Set<string>();
@@ -2622,11 +2733,29 @@ export async function resolveCollectionLayers(
   function scanCollectionLayersForBounds(layerList: Layer[]) {
     for (const layer of layerList) {
       if (layer.variables?.collection?.id) {
-        const { fieldIds: fids, fieldPaths: fpaths } = collectBoundFieldIds([layer]);
+        const { fieldIds: fids, fieldPaths: fpaths, pathsByLayerId } = collectBoundFieldIds([layer]);
         for (const fid of fids) mergedBoundFieldIds.add(fid);
         for (const fp of fpaths) mergedBoundFieldPaths.add(fp);
         boundFieldPathsByLayerId.set(layer.id, fpaths);
         scannedCollectionIds.add(layer.variables.collection.id);
+
+        // Re-attribute bindings that target an ancestor collection layer via
+        // collection_layer_id (ancestors are scanned before their descendants,
+        // so the target set already exists). Without this, a field read from an
+        // enclosing collection inside a nested collection never gets its
+        // reference paths resolved on SSR and renders empty.
+        for (const [targetLayerId, paths] of pathsByLayerId) {
+          if (targetLayerId === layer.id) continue;
+          let target = boundFieldPathsByLayerId.get(targetLayerId);
+          if (!target) {
+            target = new Set<string>();
+            boundFieldPathsByLayerId.set(targetLayerId, target);
+          }
+          for (const p of paths) {
+            target.add(p);
+            mergedBoundFieldPaths.add(p);
+          }
+        }
       }
       if (layer.children) scanCollectionLayersForBounds(layer.children);
     }
@@ -2715,7 +2844,7 @@ export async function resolveCollectionLayers(
                 // Inject virtual field data into the resolved children
                 const injectedChildren = await Promise.all(
                   resolvedChildren.map(child =>
-                    injectCollectionData(child, virtualValues, undefined, isPublished, updatedLayerDataMap, undefined, timezone)
+                    injectCollectionData(child, virtualValues, undefined, isPublished, updatedLayerDataMap, undefined, timezone, globalsData, globalsMeta)
                   )
                 );
 
@@ -2737,7 +2866,9 @@ export async function resolveCollectionLayers(
                   isPublished,
                   updatedLayerDataMap,
                   undefined,
-                  timezone
+                  timezone,
+                  globalsData,
+                  globalsMeta
                 );
 
                 // Build the cloned layer with original IDs first
@@ -2981,7 +3112,7 @@ export async function resolveCollectionLayers(
               // Then inject field data into the resolved children
               const injectedChildren = await Promise.all(
                 resolvedChildren.map(child =>
-                  injectCollectionData(child, enhancedValues, collectionFields, isPublished, updatedLayerDataMap, rawEnhancedValues, timezone)
+                  injectCollectionData(child, enhancedValues, collectionFields, isPublished, updatedLayerDataMap, rawEnhancedValues, timezone, globalsData, globalsMeta)
                 )
               );
 
@@ -3087,6 +3218,7 @@ export async function resolveCollectionLayers(
               sortByInputLayerId: collectionVariable.sort_by_inputLayerId,
               sortOrderInputLayerId: collectionVariable.sort_order_inputLayerId,
               limit: isPaginated ? paginationConfig.items_per_page : collectionVariable.limit,
+              maxTotal,
               paginationMode: isPaginated ? paginationConfig.mode : undefined,
               layerTemplate: layer.children || [],
               collectionLayerClasses: Array.isArray(layer.classes) ? layer.classes : (layer.classes ? [layer.classes] : []),
@@ -3823,6 +3955,10 @@ export async function renderCollectionItemsToHtml(
     ensureMapTokens(),
   ]);
   const htmlTimezone = (timezoneRaw as string | null) || 'UTC';
+  const [globalsData, globalsMeta] = await Promise.all([
+    buildGlobalsDataMap(isPublished),
+    buildGlobalsMetaDataMap(isPublished),
+  ]);
 
   // Augment the scoped translation map with CMS content for the items being
   // rendered so `applyCmsTranslations` (here and in nested resolution) finds
@@ -3871,7 +4007,7 @@ export async function renderCollectionItemsToHtml(
       // Inject collection data into each layer of the template (text, images, etc.)
       const injectedLayers = await Promise.all(
         clonedTemplate.map((layer: Layer) =>
-          injectCollectionDataForHtml(layer, enhancedValues, collectionFields, isPublished, rawValues, htmlTimezone)
+          injectCollectionDataForHtml(layer, enhancedValues, collectionFields, isPublished, rawValues, htmlTimezone, globalsData, globalsMeta)
         )
       );
 
@@ -4004,7 +4140,9 @@ async function injectCollectionDataForHtml(
   fields: CollectionField[],
   isPublished: boolean,
   rawItemValues?: Record<string, string>,
-  timezone: string = 'UTC'
+  timezone: string = 'UTC',
+  globalsData?: Record<string, string>,
+  globalsMeta?: Record<string, GlobalFieldMeta>
 ): Promise<Layer> {
   // Nested collection layers are resolved separately by resolveCollectionLayers,
   // which clones them per referenced item and injects each item's own values.
@@ -4017,7 +4155,7 @@ async function injectCollectionDataForHtml(
   // Reference fields are resolved once per item by the caller
   // (renderCollectionItemsToHtml). Re-resolving on every recursive
   // child would cause redundant Supabase queries.
-  const enhancedValues = itemValues;
+  const enhancedValues = mergeGlobalsIntoFieldData(itemValues, globalsData)!;
 
   const updates: Partial<Layer> = {};
   const resolvedVars: Record<string, unknown> = { ...layer.variables };
@@ -4039,7 +4177,7 @@ async function injectCollectionDataForHtml(
         };
       }
 
-      const resolvedContent = resolveRichTextVariables(content, enhancedValues, undefined, rawItemValues, timezone);
+      const resolvedContent = resolveRichTextVariables(content, enhancedValues, undefined, rawItemValues, timezone, globalsMeta);
       resolvedVars.text = {
         type: 'dynamic_rich_text',
         data: { content: resolvedContent },
@@ -4137,7 +4275,7 @@ async function injectCollectionDataForHtml(
   if (layer.children) {
     const resolvedChildren = await Promise.all(
       layer.children.map(child =>
-        injectCollectionDataForHtml(child, enhancedValues, fields, isPublished, rawItemValues, timezone)
+        injectCollectionDataForHtml(child, enhancedValues, fields, isPublished, rawItemValues, timezone, globalsData, globalsMeta)
       )
     );
     updates.children = resolvedChildren;
