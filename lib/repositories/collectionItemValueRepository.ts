@@ -781,7 +781,10 @@ export async function publishValues(item_id: string): Promise<number> {
   const { error } = await client
     .from('collection_item_values')
     .upsert(valuesToUpsert, {
-      onConflict: 'id,is_published', // Composite primary key
+      // Values are uniquely identified by item + field + publication state,
+      // not by their row UUID. Conflict on the natural key so a published row
+      // is updated in place instead of trying to insert a duplicate.
+      onConflict: 'item_id,field_id,is_published',
     });
 
   if (error) {

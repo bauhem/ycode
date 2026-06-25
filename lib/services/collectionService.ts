@@ -757,7 +757,10 @@ async function publishItemValuesBatch(
     const { error } = await client
       .from('collection_item_values')
       .upsert(chunk, {
-        onConflict: 'id,is_published',
+        // Values are uniquely identified by item + field + publication state,
+        // not by their row UUID. Conflict on the natural key so we update the
+        // existing published value instead of attempting a duplicate insert.
+        onConflict: 'item_id,field_id,is_published',
       });
 
     if (error) {
