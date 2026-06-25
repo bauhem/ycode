@@ -751,20 +751,47 @@ async function publishItemValuesBatch(
     });
   }
 
-  // Upsert in chunks within PostgREST payload limits
-  for (let j = 0; j < valuesToUpsert.length; j += SUPABASE_WRITE_BATCH_SIZE) {
-    const chunk = valuesToUpsert.slice(j, j + SUPABASE_WRITE_BATCH_SIZE);
+  // Existing published values are matched by natural key (item_id + field_id).
+  // The partial unique index on (item_id, field_id, is_published) cannot be
+  // used as an ON CONFLICT target, so update in place when a published row
+  // already exists, otherwise insert a fresh published copy.
+  const publishedByField = new Map(publishedValues.map((value) => [value.field_id, value]));
+  const updates = valuesToUpsert.filter((value) => publishedByField.has(value.field_id));
+  const inserts = valuesToUpsert.filter((value) => !publishedByField.has(value.field_id));
+
+  for (const value of updates) {
+    const published = publishedByField.get(value.field_id)!;
     const { error } = await client
       .from('collection_item_values')
-      .upsert(chunk, {
-        // Values are uniquely identified by item + field + publication state,
-        // not by their row UUID. Conflict on the natural key so we update the
-        // existing published value instead of attempting a duplicate insert.
-        onConflict: 'item_id,field_id,is_published',
-      });
+      .update({
+        value: value.value,
+        updated_at: now,
+      })
+      .eq('id', published.id)
+      .eq('is_published', true);
 
     if (error) {
-      console.error(`[PUBLISH:VALUES] Value upsert failed:`, error.message);
+      console.error(`[PUBLISH:VALUES] Value update failed:`, error.message);
+      throw new Error(`Failed to publish item values: ${error.message}`);
+    }
+  }
+
+  if (inserts.length > 0) {
+    const { error } = await client
+      .from('collection_item_values')
+      .insert(inserts.map((value) => ({
+        id: value.id,
+        item_id: value.item_id,
+        field_id: value.field_id,
+        value: value.value,
+        is_published: true,
+        created_at: value.created_at,
+        updated_at: now,
+        deleted_at: null,
+      })));
+
+    if (error) {
+      console.error(`[PUBLISH:VALUES] Value insert failed:`, error.message);
       throw new Error(`Failed to publish item values: ${error.message}`);
     }
   }

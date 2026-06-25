@@ -765,30 +765,52 @@ export async function publishValues(item_id: string): Promise<number> {
     return 0;
   }
 
-  // Prepare values for batch upsert
+  // Match draft rows to existing published rows by the natural key
+  // (item_id + field_id). The DB's partial unique index on
+  // (item_id, field_id, is_published) cannot be used as an ON CONFLICT target,
+  // so we update existing published rows in place and insert only missing rows.
   const now = new Date().toISOString();
-  const valuesToUpsert = draftValues.map(value => ({
-    id: value.id,
-    item_id: value.item_id,
-    field_id: value.field_id,
-    value: value.value,
-    is_published: true,
-    created_at: value.created_at,
-    updated_at: now,
-  }));
+  const publishedValues = await getValuesByItemId(item_id, true);
+  const publishedByField = new Map(publishedValues.map((value) => [value.field_id, value]));
 
-  // Batch upsert all values
-  const { error } = await client
-    .from('collection_item_values')
-    .upsert(valuesToUpsert, {
-      // Values are uniquely identified by item + field + publication state,
-      // not by their row UUID. Conflict on the natural key so a published row
-      // is updated in place instead of trying to insert a duplicate.
-      onConflict: 'item_id,field_id,is_published',
-    });
+  const updates = draftValues.filter((value) => publishedByField.has(value.field_id));
+  const inserts = draftValues.filter((value) => !publishedByField.has(value.field_id));
 
-  if (error) {
-    throw new Error(`Failed to publish values: ${error.message}`);
+  for (const value of updates) {
+    const published = publishedByField.get(value.field_id)!;
+    const { error } = await client
+      .from('collection_item_values')
+      .update({
+        value: value.value,
+        updated_at: now,
+      })
+      .eq('id', published.id)
+      .eq('is_published', true);
+
+    if (error) {
+      throw new Error(`Failed to update published values: ${error.message}`);
+    }
+  }
+
+  if (inserts.length > 0) {
+    const rowsToInsert = inserts.map((value) => ({
+      id: value.id,
+      item_id: value.item_id,
+      field_id: value.field_id,
+      value: value.value,
+      is_published: true,
+      created_at: value.created_at,
+      updated_at: now,
+      deleted_at: null,
+    }));
+
+    const { error } = await client
+      .from('collection_item_values')
+      .insert(rowsToInsert);
+
+    if (error) {
+      throw new Error(`Failed to insert published values: ${error.message}`);
+    }
   }
 
   // Copy the draft content_hash to the published item
