@@ -21,7 +21,7 @@ import { buildSvgDataUrl, getAssetProxyUrl } from '@/lib/asset-utils';
 import { generateColorVariablesCss } from '@/lib/repositories/colorVariableRepository';
 import { buildPageHreflangAlternates } from '@/lib/hreflang-utils';
 import { getTranslatableKey, getTranslationValue } from '@/lib/locale-runtime';
-import { getSiteBaseUrl } from '@/lib/url-utils';
+import { buildAbsolutePageUrl, getSiteBaseUrl } from '@/lib/url-utils';
 
 /** Languages map shape Next.js expects under `metadata.alternates.languages`. */
 type MetadataLanguages = NonNullable<NonNullable<Metadata['alternates']>['languages']>;
@@ -342,7 +342,7 @@ export async function generatePageMetadata(
   // favicon and web clip render before the user publishes.
   const seoSettings = options.globalSeoSettings || await fetchGlobalPageSettings(isPreview);
 
-  let canonicalUrl: string | null = null;
+  const canonicalUrl: string | null = null;
 
   if (!isPreview) {
     siteBaseUrl = getSiteBaseUrl({
@@ -359,14 +359,9 @@ export async function generatePageMetadata(
 
     // Add canonical URL
     if (seoSettings.globalCanonicalUrl && pagePath !== undefined) {
-      const canonicalBase = seoSettings.globalCanonicalUrl.replace(/\/$/, '');
-      canonicalUrl = pagePath === '/' || pagePath === ''
-        ? canonicalBase
-        : `${canonicalBase}${pagePath.startsWith('/') ? pagePath : '/' + pagePath}`;
-
       metadata.alternates = {
         ...metadata.alternates,
-        canonical: canonicalUrl,
+        canonical: buildAbsolutePageUrl(seoSettings.globalCanonicalUrl, pagePath),
       };
     }
 
@@ -405,34 +400,49 @@ export async function generatePageMetadata(
     }
   }
 
+  // URL of the current page for og:url. Prefer an absolute URL built from the
+  // resolved base (canonical / primary domain / Vercel env) so it's correct on
+  // Vercel and cloud even when the route doesn't set `metadataBase`. Falls back
+  // to the relative path locally (no base configured), which Next.js resolves
+  // against `metadataBase` when available.
+  const pageUrl = pagePath === undefined
+    ? undefined
+    : siteBaseUrl
+      ? buildAbsolutePageUrl(siteBaseUrl, pagePath)
+      : pagePath;
+
   // Add Open Graph and Twitter Card metadata (not for error pages)
-  if (seo?.image && !isErrorPage) {
+  if (!isErrorPage) {
     // Resolve image URL (handles both Asset ID string and FieldVariable)
-    let imageUrl = await resolveImageUrl(seo.image, collectionItem);
+    let imageUrl = seo?.image ? await resolveImageUrl(seo.image, collectionItem) : null;
 
     // Make relative URLs absolute — social crawlers require absolute og:image URLs
     if (imageUrl && imageUrl.startsWith('/') && siteBaseUrl) {
       imageUrl = `${siteBaseUrl}${imageUrl}`;
     }
 
-    if (imageUrl) {
+    if (imageUrl || pageUrl !== undefined) {
       metadata.openGraph = {
         title,
         description,
-        url: canonicalUrl || undefined,
-        images: [
-          {
-            url: imageUrl,
-            width: 1200,
-            height: 630,
-          },
-        ],
+        ...(pageUrl !== undefined ? { url: pageUrl } : {}),
+        ...(imageUrl
+          ? {
+            images: [
+              {
+                url: imageUrl,
+                width: 1200,
+                height: 630,
+              },
+            ],
+          }
+          : {}),
       };
       metadata.twitter = {
-        card: 'summary_large_image',
+        card: imageUrl ? 'summary_large_image' : 'summary',
         title,
         description,
-        images: [imageUrl],
+        ...(imageUrl ? { images: [imageUrl] } : {}),
       };
     }
   }
