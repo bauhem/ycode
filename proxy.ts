@@ -125,54 +125,6 @@ async function verifyApiAuth(request: NextRequest): Promise<NextResponse | null>
   return authResponse;
 }
 
-/**
- * Supported locale codes for browser-language auto-redirect.
- * The first entry is the default (fallback) locale.
- */
-const SUPPORTED_LOCALES: string[] = ['fr', 'en'];
-const DEFAULT_LOCALE = SUPPORTED_LOCALES[0];
-const LOCALE_PREFIX_RE = /^\/(en|fr)(\/|$)/;
-
-/**
- * Parse the Accept-Language header and return the best matching supported locale,
- * or null if the user's preference matches the default locale.
- *
- * Accept-Language format: "fr-FR,fr;q=0.9,en;q=0.8"
- * Quality defaults to 1.0 when omitted.
- */
-function parsePreferredLocale(header: string | null): string | null {
-  if (!header) return null;
-
-  const entries: { code: string; q: number }[] = [];
-
-  for (const part of header.split(',')) {
-    const trimmed = part.trim();
-    if (!trimmed) continue;
-    const [lang, qRaw] = trimmed.split(';');
-    const code = lang.split('-')[0].toLowerCase();
-    const q = qRaw ? parseFloat(qRaw.replace(/^q\s*=\s*/, '')) : 1;
-    if (isNaN(q)) continue;
-    entries.push({ code, q });
-  }
-
-  entries.sort((a, b) => {
-    if (b.q !== a.q) return b.q - a.q;
-    // Tie-break: prefer exact match over wildcard
-    if (a.code === '*') return 1;
-    if (b.code === '*') return -1;
-    return 0;
-  });
-
-  const SUPPORTED = new Set(SUPPORTED_LOCALES);
-
-  for (const { code } of entries) {
-    if (code === '*') break; // Wildcard means "default", stop searching
-    if (SUPPORTED.has(code)) return code;
-  }
-
-  return null;
-}
-
 export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
@@ -224,20 +176,6 @@ export async function proxy(request: NextRequest) {
     const rewriteResponse = NextResponse.rewrite(rewriteUrl);
     rewriteResponse.headers.set('x-pathname', pathname);
     return rewriteResponse;
-  }
-
-  // Auto-redirect to the user's preferred locale based on Accept-Language.
-  // Skip if already on a locale-prefixed path or if the user has a saved preference.
-  if (isPublicPage && !LOCALE_PREFIX_RE.test(pathname)) {
-    const cookieLocale = request.cookies.get('ycode_locale')?.value;
-    if (!cookieLocale) {
-      const preferred = parsePreferredLocale(request.headers.get('Accept-Language'));
-      if (preferred && preferred !== DEFAULT_LOCALE) {
-        const redirectUrl = request.nextUrl.clone();
-        redirectUrl.pathname = pathname === '/' ? `/${preferred}` : `/${preferred}${pathname}`;
-        return NextResponse.redirect(redirectUrl, { status: 302 });
-      }
-    }
   }
 
   // Create response
