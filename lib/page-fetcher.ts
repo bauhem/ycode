@@ -3070,6 +3070,26 @@ export async function resolveCollectionLayers(
 
           // Pre-process all items: translations + date formatting (pure computation)
           await ensureCmsTranslations(translations, sortedItems.map(item => item.id));
+
+          // Some collection-layer code paths receive a translations map that has
+          // the locale scaffold and context, but not the CMS rows for these item
+          // ids yet. When that happens localized collection clones can render the
+          // source-language values even though the translations exist and later
+          // sibling collection layers load them. As a defensive fallback for
+          // non-default locales, detect item ids with no loaded CMS rows and load
+          // them directly here before applying CMS translations.
+          if (translations && locale && !locale.is_default) {
+            const missingCmsItemIds = sortedItems
+              .map(item => item.id)
+              .filter(itemId => !Object.keys(translations).some(key => key.startsWith(`cms:${itemId}:`)));
+            if (missingCmsItemIds.length > 0) {
+              const rows = await getCmsTranslationsForItems(locale.id, isPublished, missingCmsItemIds);
+              for (const row of rows) {
+                translations[getTranslatableKey(row)] = row;
+              }
+            }
+          }
+
           const preprocessed = sortedItems.map(item => {
             let translatedValues = applyCmsTranslations(item.id, item.values, collectionFields, translations, { includeIncomplete: !isPublished });
             const rawTranslatedValues = { ...translatedValues };

@@ -114,14 +114,20 @@ export function resolveFieldFromSources(
     return pageCollectionItemData?.[fieldId];
   }
 
-  // If specific layer ID is provided and exists in layerDataMap, use that layer's data
-  if (collectionLayerId && layerDataMap?.[collectionLayerId]) {
-    return layerDataMap[collectionLayerId][fieldId];
-  }
-
   // Collection source - use merged collection data
   if (source === 'collection') {
-    return collectionItemData?.[fieldId];
+    return collectionItemData?.[fieldId]
+      ?? (collectionLayerId && layerDataMap?.[collectionLayerId]
+        ? layerDataMap[collectionLayerId][fieldId]
+        : undefined);
+  }
+
+  // If specific layer ID is provided and exists in layerDataMap, use that layer's data
+  // as a fallback for bindings that target a particular collection layer instance.
+  // Localized SSR already bakes translated values into collectionItemData/page data,
+  // while layerDataMap can still hold stale pre-translation values from cache setup.
+  if (collectionLayerId && layerDataMap?.[collectionLayerId]) {
+    return layerDataMap[collectionLayerId][fieldId];
   }
 
   // No explicit source - check collection first, then page (backwards compatibility)
