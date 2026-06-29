@@ -7,6 +7,7 @@ import { getSupabaseAdmin } from '@/lib/supabase-server';
 import { buildSlugPath } from '@/lib/page-utils';
 import { generatePageMetadata, fetchGlobalPageSettings } from '@/lib/generate-page-metadata';
 import { fetchPageByPath, fetchPageByPathForMetadata, fetchErrorPage, splitPageData, reassemblePageData, slimPageData } from '@/lib/page-fetcher';
+import { resolveInlineVariables } from '@/lib/resolve-cms-variables';
 import PageRenderer from '@/components/PageRenderer';
 import JsonLd from '@/components/JsonLd';
 import PasswordForm from '@/components/PasswordForm';
@@ -397,6 +398,10 @@ export default async function Page({ params }: PageProps) {
     if (descTranslation?.content_value) {
       seoDesc = descTranslation.content_value;
     }
+  }
+  if (collectionItem) {
+    seoTitle = resolveInlineVariables(seoTitle, collectionItem);
+    seoDesc = resolveInlineVariables(seoDesc, collectionItem);
   }
 
   return (

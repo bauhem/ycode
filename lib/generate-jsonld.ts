@@ -8,8 +8,8 @@
  * SERVER-ONLY: This module should never be imported in client code.
  */
 
-import type { CollectionItemWithValues, Locale, Page } from '@/types';
 import { getSiteBaseUrl } from '@/lib/url-utils';
+import type { CollectionItemWithValues, Locale, Page } from '@/types';
 
 /** Organization data shared across all schema blocks */
 function getOrganization(locale?: Locale | null) {
@@ -47,12 +47,38 @@ export interface JsonLdContext {
  * Determine the page's content type from its folder path / slug structure.
  */
 function detectPageType(page: Page, pagePath: string): 'home' | 'service' | 'solution' | 'blog' | 'realisation' | 'generic' {
-  if (pagePath === '/' || pagePath === '') return 'home';
-  if (pagePath.startsWith('/services/') || pagePath === '/services') return 'service';
-  if (pagePath.startsWith('/solutions/') || pagePath === '/solutions') return 'solution';
-  if (pagePath.startsWith('/blog/') || pagePath === '/blog') return 'blog';
-  if (pagePath.startsWith('/realisations/')) return 'realisation';
+  const canonicalPath = stripLocalePrefix(pagePath);
+
+  if (canonicalPath === '/' || canonicalPath === '') return 'home';
+  if (canonicalPath.startsWith('/services/') || canonicalPath === '/services') return 'service';
+  if (canonicalPath.startsWith('/solutions/') || canonicalPath === '/solutions') return 'solution';
+  if (canonicalPath.startsWith('/blog/') || canonicalPath === '/blog') return 'blog';
+  if (canonicalPath.startsWith('/realisations/')) return 'realisation';
   return 'generic';
+}
+
+function stripLocalePrefix(pagePath: string): string {
+  return pagePath.replace(/^\/[a-z]{2}(?=\/|$)/, '') || '/';
+}
+
+function getPrimaryTitle(title: string): string {
+  const titleParts = title.split('|');
+  if (titleParts.length < 2) {
+    return title;
+  }
+
+  const firstPart = titleParts[0]?.trim() || '';
+  const lastPart = titleParts[titleParts.length - 1]?.trim() || '';
+
+  if (/^bauhem\b/i.test(firstPart)) {
+    return lastPart || firstPart || title;
+  }
+
+  if (/^bauhem\b/i.test(lastPart)) {
+    return firstPart || lastPart || title;
+  }
+
+  return lastPart || firstPart || title;
 }
 
 /**
@@ -117,7 +143,7 @@ export function buildJsonLd(context: JsonLdContext): object[] {
   // Page-type-specific schema
   switch (pageType) {
     case 'service': {
-      const serviceName = extractPageNameFromPath(pagePath, 'services');
+      const serviceName = getPrimaryTitle(title) || extractPageNameFromPath(pagePath);
       graph.push({
         '@context': 'https://schema.org',
         '@type': 'Service',
@@ -165,7 +191,7 @@ export function buildJsonLd(context: JsonLdContext): object[] {
       graph.push({
         '@context': 'https://schema.org',
         '@type': 'Service',
-        name: page.name,
+        name: getPrimaryTitle(title) || page.name,
         url: pageUrl,
         description,
         provider: {
@@ -214,8 +240,8 @@ function buildBreadcrumbs(pagePath: string, baseUrl: string, locale?: Locale | n
  * Extract a human-readable page name from the last path segment,
  * optionally stripping a known prefix.
  */
-function extractPageNameFromPath(pagePath: string, prefix: string): string {
-  const segments = pagePath.replace(/^\//, '').replace(/\/$/, '').split('/');
+function extractPageNameFromPath(pagePath: string): string {
+  const segments = stripLocalePrefix(pagePath).replace(/^\//, '').replace(/\/$/, '').split('/');
   const last = segments[segments.length - 1] || '';
   return last
     .replace(/-/g, ' ')
