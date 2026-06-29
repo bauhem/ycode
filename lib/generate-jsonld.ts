@@ -19,7 +19,7 @@ function getOrganization(locale?: Locale | null) {
     description: isEn
       ? 'Bauhem designs structured websites, portals and web systems that help SMBs be better understood by their clients, Google and AI tools.'
       : 'Bauhem conçoit des sites, portails et systèmes web structurés pour aider les PME à être mieux comprises par leurs clients, Google et les outils d\'IA.',
-    foundingDate: '2012',
+    foundingDate: '2012-01-01',
     founder: {
       '@type': 'Person' as const,
       name: 'Guillaume Gosselin',
@@ -128,6 +128,11 @@ export function buildJsonLd(context: JsonLdContext): object[] {
   // BreadcrumbList
   const breadcrumbs = buildBreadcrumbs(pagePath, baseUrl, locale);
   if (breadcrumbs.length > 0) {
+    // Override the last breadcrumb name with the actual page title
+    const lastCrumb = breadcrumbs[breadcrumbs.length - 1];
+    if (lastCrumb) {
+      lastCrumb.name = getPrimaryTitle(title);
+    }
     graph.push({
       '@context': 'https://schema.org',
       '@type': 'BreadcrumbList',
@@ -148,6 +153,7 @@ export function buildJsonLd(context: JsonLdContext): object[] {
         '@context': 'https://schema.org',
         '@type': 'Service',
         name: serviceName || page.name,
+        serviceType: 'Technical SEO, AEO and GEO Consulting',
         url: pageUrl,
         description,
         provider: {
@@ -192,6 +198,7 @@ export function buildJsonLd(context: JsonLdContext): object[] {
         '@context': 'https://schema.org',
         '@type': 'Service',
         name: getPrimaryTitle(title) || page.name,
+        serviceType: 'Digital Solutions',
         url: pageUrl,
         description,
         provider: {
