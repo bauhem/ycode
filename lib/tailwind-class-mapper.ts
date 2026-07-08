@@ -909,14 +909,16 @@ export function propertyToClass(
       return `object-${value}`;
     }
 
-    // Grid Column Span
+    // Grid Column Span (value can be "3" or "span 3" — strip CSS "span " prefix)
     if (property === 'gridColumnSpan') {
-      return value === 'full' ? 'col-span-full' : `col-span-${value}`;
+      const clean = value.replace(/^span\s+/i, '');
+      return clean === 'full' ? 'col-span-full' : `col-span-${clean}`;
     }
 
-    // Grid Row Span
+    // Grid Row Span (same: value can be "3" or "span 3")
     if (property === 'gridRowSpan') {
-      return value === 'full' ? 'row-span-full' : `row-span-${value}`;
+      const clean = value.replace(/^span\s+/i, '');
+      return clean === 'full' ? 'row-span-full' : `row-span-${clean}`;
     }
   }
 
