@@ -9,6 +9,7 @@
 import type { Locale, Page, PageFolder, Translation } from '@/types';
 import { buildSlugPath, buildLocalizedSlugPath } from './page-utils';
 import { getTranslatableKey } from './locale-runtime';
+import { buildAbsolutePageUrl } from './url-utils';
 
 export interface HreflangAlternate {
   hreflang: string;
@@ -49,7 +50,7 @@ function buildDynamicDefaultUrl(
 ): string {
   const folderPath = buildSlugPath(page, folders, 'page', '').replace(/\/$/, '');
   const itemPath = folderPath ? `${folderPath}/${slugValue}` : `/${slugValue}`;
-  return normalizeAbsoluteUrl(`${baseUrl}${itemPath}`);
+  return buildAbsolutePageUrl(baseUrl, itemPath);
 }
 
 /** Build a localized absolute URL for a dynamic item in a non-default locale. */
@@ -87,7 +88,7 @@ function buildDynamicLocalizedUrl(
     ? `${localizedFolderPath}/${translatedSlug}`
     : `/${locale.code}/${translatedSlug}`;
 
-  return normalizeAbsoluteUrl(`${baseUrl}${localizedItemPath}`);
+  return buildAbsolutePageUrl(baseUrl, localizedItemPath);
 }
 
 /**
@@ -121,7 +122,7 @@ export function buildPageHreflangAlternates(params: {
 
   const defaultUrl = dynamicSlug
     ? buildDynamicDefaultUrl(page, folders, baseUrl, dynamicSlug.defaultValue)
-    : normalizeAbsoluteUrl(`${baseUrl}${buildSlugPath(page, folders, 'page')}`);
+    : buildAbsolutePageUrl(baseUrl, buildSlugPath(page, folders, 'page'));
 
   const alternates: HreflangAlternate[] = [];
 
@@ -133,7 +134,7 @@ export function buildPageHreflangAlternates(params: {
     const translations = translationsByLocale.get(locale.id);
     const href = dynamicSlug
       ? buildDynamicLocalizedUrl(page, folders, baseUrl, locale, translations, dynamicSlug)
-      : normalizeAbsoluteUrl(`${baseUrl}${buildLocalizedSlugPath(page, folders, 'page', locale, translations)}`);
+      : buildAbsolutePageUrl(baseUrl, buildLocalizedSlugPath(page, folders, 'page', locale, translations));
     alternates.push({ hreflang: locale.code, href });
   }
 
