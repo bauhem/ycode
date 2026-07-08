@@ -29,6 +29,18 @@ export default function SliderInitializer() {
   useEffect(() => {
     loadSwiperCss(document);
 
+    // Sliders initialized while hidden (e.g. `hidden max-lg:flex`) measure their
+    // slides as zero-width; a media-query `display` change doesn't fire a window
+    // resize, so Swiper never recalculates. Watch each slider's size and call
+    // `update()` once it becomes visible so slides pick up their real widths.
+    const swiperByElement = new WeakMap<Element, Swiper>();
+    const resizeObserver = new ResizeObserver((entries) => {
+      entries.forEach((entry) => {
+        if (entry.contentRect.width <= 0) return;
+        swiperByElement.get(entry.target)?.update();
+      });
+    });
+
     const initSliders = () => {
       const sliderElements = document.querySelectorAll<HTMLElement>(
         `[data-slider-id]:not([${INITIALIZED_ATTR}])`,
@@ -64,6 +76,8 @@ export default function SliderInitializer() {
 
           el.setAttribute(INITIALIZED_ATTR, '');
           swiperInstancesRef.current.push(swiper);
+          swiperByElement.set(el, swiper);
+          resizeObserver.observe(el);
         } catch {
           console.error('Failed to initialize slider:', el.getAttribute('data-slider-id'));
         }
@@ -84,6 +98,7 @@ export default function SliderInitializer() {
       window.removeEventListener(ITEMS_INJECTED_EVENT, handleItemsInjected);
       cleanupCallbacksRef.current.forEach((cleanup) => cleanup());
       cleanupCallbacksRef.current = [];
+      resizeObserver.disconnect();
       swiperInstancesRef.current.forEach((swiper) => swiper.destroy(true, true));
       swiperInstancesRef.current = [];
     };
