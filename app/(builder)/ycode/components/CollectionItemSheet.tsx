@@ -1059,7 +1059,7 @@ export default function CollectionItemSheet({
                             (() => {
                               const options = field.data?.options ?? [];
                               const currentValue = formField.value || '';
-                              const hasMatchingOption = options.some(o => o.name.trim() === currentValue);
+                              const hasMatchingOption = options.some(o => o.name?.trim() === currentValue);
                               return (
                                 <Select
                                   value={currentValue || '__none__'}
@@ -1085,7 +1085,7 @@ export default function CollectionItemSheet({
                                     <SelectGroup>
                                       <SelectItem value="__none__">None</SelectItem>
                                       {options
-                                        .filter(o => o.name.trim().length > 0)
+                                        .filter(o => o.name?.trim().length > 0)
                                         .map((option) => (
                                           <SelectItem key={option.id} value={option.name.trim()}>
                                             {option.name.trim()}
