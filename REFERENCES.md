@@ -238,9 +238,9 @@ Without published copies, collections/fields won't appear in template binding dr
 ### SSH Tunnel
 `npm run dev` runs:
 ```
-ssh -i ~/.ssh/vps_ycode -o StrictHostKeyChecking=accept-new -L 5433:172.18.0.4:5432 ubuntu@51.222.143.231 -N -f
+ssh -i ~/.ssh/vps_ycode -o StrictHostKeyChecking=accept-new -L 5433:127.0.0.1:5433 ubuntu@51.222.143.231 -N -f
 ```
-Maps local port 5433 to supabase-db container port 5432 on VPS.
+Maps local port 5433 to the VPS host's published Supabase DB port 5433.
 
 ### Deployed Admin & Serverless MCP
 YCode MCP server runs on Netlify serverless. Two settings in `app/(builder)/ycode/mcp/[token]/route.ts`:

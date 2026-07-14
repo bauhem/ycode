@@ -83,7 +83,7 @@ Types: `feat`, `fix`, `refactor`, `chore`, `docs`, `style`, `perf`, `test`.
 - **Supabase**: Self-hosted on VPS via Docker
 - **Admin**: `bauhem.com` (Netlify)
 - **MCP**: `scripts/mcp-ycode-bridge.js`
-- **SSH**: `ssh -i ~/.ssh/vps_ycode -L 5433:172.18.0.4:5432 ubuntu@51.222.143.231`
+- **SSH**: `ssh -i ~/.ssh/vps_ycode -L 5433:127.0.0.1:5433 ubuntu@51.222.143.231`
 
 ## 📎 External References
 - Detailed localization workflow → see YCode MCP section in old AGENTS.md or docs
