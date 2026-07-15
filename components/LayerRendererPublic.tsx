@@ -1074,9 +1074,9 @@ const LayerItem: React.FC<{
       const isLcpCandidate = !!lcpCandidateLayerId && layer.id === lcpCandidateLayerId;
       const imgLoadingAttr = layer.attributes?.loading as string | undefined;
       // LCP candidate always loads eagerly with high fetchpriority — overrides
-      // the image template's default `loading="lazy"`. Other images keep
-      // whatever the user/template set.
-      const effectiveLoading = isLcpCandidate ? 'eager' : imgLoadingAttr;
+      // the default `loading="lazy"`. Other images default to `lazy` unless
+      // the user explicitly set a different value.
+      const effectiveLoading = isLcpCandidate ? 'eager' : (imgLoadingAttr || 'lazy');
 
       const optimizedSrc = getOptimizedImageUrl(finalImageUrl, 1920, 85);
 
