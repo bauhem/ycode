@@ -67,6 +67,10 @@ function getElement(layerId: string): HTMLElement | null {
   return document.querySelector(`[data-layer-id="${layerId}"]`);
 }
 
+function getElements(layerId: string): HTMLElement[] {
+  return Array.from(document.querySelectorAll<HTMLElement>(`[data-layer-id="${layerId}"]`));
+}
+
 /**
  * Pre-paint each tween's `from` state so the element rests in its intended
  * initial appearance before the trigger fires. CSS via generateInitialAnimationCSS()
@@ -134,6 +138,16 @@ function collectInteractiveDisplayTargets(interactions: CollectedInteraction[]):
  */
 function isUniformOnLoadHide(breakpoints: string[] | null | undefined): boolean {
   return breakpoints == null || BREAKPOINT_VALUES.every((bp) => breakpoints.includes(bp));
+}
+
+/**
+ * Click interactions that toggle display act like disclosure controls. If their
+ * trigger contains a link, the browser navigation must be cancelled so the first
+ * tap opens the menu instead of leaving the page.
+ */
+function togglesDisplayOnClick(interaction: LayerInteraction): boolean {
+  if (interaction.trigger !== 'click') return false;
+  return (interaction.tweens || []).some((tween) => tween.from?.display || tween.to?.display);
 }
 
 /**
@@ -523,7 +537,8 @@ export default function AnimationInitializer({ layers, injectInitialCSS }: Anima
     detachAnimations();
 
     collectedInteractions.forEach(({ triggerLayerId, interaction }) => {
-      const triggerElement = getElement(triggerLayerId);
+      const triggerElements = getElements(triggerLayerId);
+      const triggerElement = triggerElements[0];
       if (!triggerElement) return;
 
       const { trigger } = interaction;
@@ -567,10 +582,30 @@ export default function AnimationInitializer({ layers, injectInitialCSS }: Anima
         case 'click': {
           let isForward = true;
           const isLooped = (interaction.timeline?.repeat ?? 0) !== 0;
+          const suppressDefaultNavigation = togglesDisplayOnClick(interaction);
 
-          const handleClick = () => {
+          const handleClick = (event: MouseEvent) => {
             // Check breakpoint at trigger time for interactive triggers
             if (!shouldRunOnBreakpoint(interaction, getCurrentBreakpoint())) return;
+
+            const clickedTrigger = event.currentTarget as HTMLElement;
+            const scopedDropdown = clickedTrigger.querySelector<HTMLElement>('[data-dd="true"]');
+
+            if (suppressDefaultNavigation) {
+              event.preventDefault();
+            }
+
+            if (scopedDropdown) {
+              const isHidden = scopedDropdown.getAttribute('data-gsap-hidden') !== null || getComputedStyle(scopedDropdown).display === 'none';
+              if (isHidden) {
+                scopedDropdown.removeAttribute('data-gsap-hidden');
+                gsap.set(scopedDropdown, { display: 'flex', autoAlpha: 1, y: 0 });
+              } else {
+                gsap.set(scopedDropdown, { autoAlpha: 0, display: 'none' });
+                scopedDropdown.setAttribute('data-gsap-hidden', '');
+              }
+              return;
+            }
 
             const timeline = getTimeline();
             if (!timeline) return;
@@ -593,8 +628,10 @@ export default function AnimationInitializer({ layers, injectInitialCSS }: Anima
             }
           };
 
-          triggerElement.addEventListener('click', handleClick);
-          cleanupRef.current.push(() => triggerElement.removeEventListener('click', handleClick));
+          triggerElements.forEach((element) => element.addEventListener('click', handleClick));
+          cleanupRef.current.push(() => {
+            triggerElements.forEach((element) => element.removeEventListener('click', handleClick));
+          });
           break;
         }
 
