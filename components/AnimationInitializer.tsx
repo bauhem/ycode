@@ -150,6 +150,14 @@ function togglesDisplayOnClick(interaction: LayerInteraction): boolean {
   return (interaction.tweens || []).some((tween) => tween.from?.display || tween.to?.display);
 }
 
+function isLinkClickInsideDropdown(event: MouseEvent, dropdown: HTMLElement): boolean {
+  const target = event.target;
+  if (!(target instanceof Element)) return false;
+
+  const link = target.closest('a[href]');
+  return link !== null && dropdown.contains(link);
+}
+
 /**
  * Reset GSAP inline styles and restore initial data attributes for a breakpoint
  */
@@ -590,6 +598,10 @@ export default function AnimationInitializer({ layers, injectInitialCSS }: Anima
 
             const clickedTrigger = event.currentTarget as HTMLElement;
             const scopedDropdown = clickedTrigger.querySelector<HTMLElement>('[data-dd="true"]');
+
+            if (scopedDropdown && isLinkClickInsideDropdown(event, scopedDropdown)) {
+              return;
+            }
 
             if (suppressDefaultNavigation) {
               event.preventDefault();
