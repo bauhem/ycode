@@ -223,7 +223,7 @@ function stripTextStylesForClient(textStyles: Layer['textStyles']): Layer['textS
  * The RSC Flight payload serializes everything passed to 'use client'
  * components, so stripping here avoids doubling the response size.
  */
-function stripSSROnlyData(layers: Layer[]): Layer[] {
+function stripSSROnlyData(layers: Layer[], options: { stripInteractions?: boolean } = {}): Layer[] {
   return layers.map(layer => {
     const stripped: Layer = { ...layer };
 
@@ -242,6 +242,9 @@ function stripSSROnlyData(layers: Layer[]): Layer[] {
     delete stripped.styleId;
     delete stripped.styleOverrides;
     delete stripped.styleOverridesByStyle;
+    if (options.stripInteractions) {
+      delete stripped.interactions;
+    }
 
     const slimDesign = stripDesignForClient(stripped.design);
     if (slimDesign) {
@@ -260,23 +263,34 @@ function stripSSROnlyData(layers: Layer[]): Layer[] {
     if (stripped._filterConfig?.layerTemplate) {
       stripped._filterConfig = {
         ...stripped._filterConfig,
-        layerTemplate: stripSSROnlyData(stripped._filterConfig.layerTemplate),
+        layerTemplate: stripSSROnlyData(stripped._filterConfig.layerTemplate, options),
       };
     }
 
     if (stripped._paginationMeta?.layerTemplate) {
       stripped._paginationMeta = {
         ...stripped._paginationMeta,
-        layerTemplate: stripSSROnlyData(stripped._paginationMeta.layerTemplate),
+        layerTemplate: stripSSROnlyData(stripped._paginationMeta.layerTemplate, options),
       };
     }
 
     if (stripped.children) {
-      stripped.children = stripSSROnlyData(stripped.children);
+      stripped.children = stripSSROnlyData(stripped.children, options);
     }
 
     return stripped;
   });
+}
+
+function stripComponentsForClient(components: Component[]): Component[] {
+  return components.map(component => ({
+    ...component,
+    layers: stripSSROnlyData(component.layers || []),
+    variants: component.variants?.map(variant => ({
+      ...variant,
+      layers: stripSSROnlyData(variant.layers || []),
+    })),
+  }));
 }
 
 /** Extract minimal animation data from the layer tree for AnimationInitializer */
@@ -308,6 +322,17 @@ function tiptapTreeHasLayer(node: any, predicate: (layer: Layer) => boolean): bo
   return false;
 }
 
+function tiptapTreeHasRichTextComponent(node: any): boolean {
+  if (!node || typeof node !== 'object') return false;
+  if (node.type === 'richTextComponent') return true;
+  if (Array.isArray(node.content)) {
+    for (const child of node.content) {
+      if (tiptapTreeHasRichTextComponent(child)) return true;
+    }
+  }
+  return false;
+}
+
 /** Recursively check if any layer matches the predicate, descending into both
  * children and the pre-resolved layers of rich-text-embedded components. */
 function layerTreeHasLayer(layers: Layer[], predicate: (layer: Layer) => boolean): boolean {
@@ -319,6 +344,18 @@ function layerTreeHasLayer(layers: Layer[], predicate: (layer: Layer) => boolean
       return true;
     }
     if (layer.children && layerTreeHasLayer(layer.children, predicate)) return true;
+  }
+  return false;
+}
+
+function layerTreeHasRichTextComponent(layers: Layer[]): boolean {
+  for (const layer of layers) {
+    const textVar = layer.variables?.text as any;
+    if (textVar?.type === 'dynamic_rich_text' && textVar.data?.content
+      && tiptapTreeHasRichTextComponent(textVar.data.content)) {
+      return true;
+    }
+    if (layer.children && layerTreeHasRichTextComponent(layer.children)) return true;
   }
   return false;
 }
@@ -645,7 +682,11 @@ export default async function PageRenderer({
   // Strip heavy SSR-only data before crossing the client component boundary.
   // On published pages, all variables are pre-resolved so _collectionItemValues
   // and _layerDataMap are redundant — removing them can cut the payload by 10x+.
-  const childLayers = usePublishedData ? stripSSROnlyData(rawChildLayers) : rawChildLayers;
+  const childLayers = usePublishedData ? stripSSROnlyData(rawChildLayers, { stripInteractions: true }) : rawChildLayers;
+  const needsClientComponents = layerTreeHasRichTextComponent(rawChildLayers);
+  const clientComponents = usePublishedData
+    ? (needsClientComponents ? stripComponentsForClient(components) : [])
+    : components;
   const animationLayers = usePublishedData ? extractAnimationLayers(resolvedLayers) : resolvedLayers;
 
   // Load installed fonts and generate CSS + link URLs
@@ -948,9 +989,8 @@ export default async function PageRenderer({
           collectionItemSlugs={collectionItemSlugs}
           isPreview={isPreview}
           pageLocalizedPaths={pageLocalizedPaths}
-          linkTranslations={translations}
           resolvedAssets={resolvedAssets}
-          components={components}
+          components={clientComponents}
           serverSettings={serverSettings}
           globalsData={Object.keys(globalsData).length > 0 ? globalsData : undefined}
           globalsMeta={Object.keys(globalsMeta).length > 0 ? globalsMeta : undefined}

@@ -114,12 +114,6 @@ interface LayerRendererPublicProps {
    * Dynamic-page paths include the `{slug}` placeholder.
    */
   pageLocalizedPaths?: Record<string, Record<string, string>>;
-  /**
-   * Current locale's scaffold translations, passed only for link-resolution
-   * fallback. Media translation lookups (image/video/audio/icon) are pre-applied
-   * server-side and do NOT use this map.
-   */
-  linkTranslations?: Record<string, any> | null;
   anchorMap?: Record<string, string>;
   resolvedAssets?: Record<string, { url: string; width?: number | null; height?: number | null }>;
   components?: Component[];
@@ -167,7 +161,6 @@ const LayerRendererPublic: React.FC<LayerRendererPublicProps> = ({
   folders = [],
   isPreview = false,
   pageLocalizedPaths,
-  linkTranslations,
   anchorMap: anchorMapProp,
   resolvedAssets,
   components: componentsProp,
@@ -286,7 +279,6 @@ const LayerRendererPublic: React.FC<LayerRendererPublicProps> = ({
         collectionItemSlugs={collectionItemSlugs}
         isPreview={isPreview}
         pageLocalizedPaths={pageLocalizedPaths}
-        linkTranslations={linkTranslations}
         anchorMap={anchorMap}
         resolvedAssets={resolvedAssets}
         components={componentsProp}
@@ -332,7 +324,6 @@ const LayerItem: React.FC<{
   collectionItemSlugs?: Record<string, string>;
   isPreview?: boolean;
   pageLocalizedPaths?: Record<string, Record<string, string>>;
-  linkTranslations?: Record<string, any> | null;
   anchorMap?: Record<string, string>;
   resolvedAssets?: Record<string, { url: string; width?: number | null; height?: number | null }>;
   components?: Component[];
@@ -366,7 +357,6 @@ const LayerItem: React.FC<{
   collectionItemSlugs,
   isPreview,
   pageLocalizedPaths,
-  linkTranslations,
   anchorMap,
   resolvedAssets,
   components: componentsProp,
@@ -436,7 +426,6 @@ const LayerItem: React.FC<{
     collectionItemSlugs,
     isPreview,
     pageLocalizedPaths,
-    linkTranslations,
     anchorMap,
     resolvedAssets,
     components: componentsProp,
@@ -445,7 +434,7 @@ const LayerItem: React.FC<{
     globalsMeta,
     lcpCandidateLayerId,
     passwordProtection,
-  }), [isPublished, pageId, collectionLayerData, collectionLayerItemId, effectiveLayerDataMap, pageCollectionItemId, pageCollectionItemData, pageCollectionSortedItemIds, hiddenLayerInfo, currentLocale, availableLocales, localeSelectorFormat, localizedPageUrls, isInsideForm, isInsideLink, parentFormSettings, pages, folders, collectionItemSlugs, isPreview, pageLocalizedPaths, linkTranslations, anchorMap, resolvedAssets, componentsProp, serverSettings, globalsData, globalsMeta, lcpCandidateLayerId, passwordProtection]);
+  }), [isPublished, pageId, collectionLayerData, collectionLayerItemId, effectiveLayerDataMap, pageCollectionItemId, pageCollectionItemData, pageCollectionSortedItemIds, hiddenLayerInfo, currentLocale, availableLocales, localeSelectorFormat, localizedPageUrls, isInsideForm, isInsideLink, parentFormSettings, pages, folders, collectionItemSlugs, isPreview, pageLocalizedPaths, anchorMap, resolvedAssets, componentsProp, serverSettings, globalsData, globalsMeta, lcpCandidateLayerId, passwordProtection]);
 
   const renderComponentBlock: RenderComponentBlockFn = useCallback(
     (comp, resolvedLayers, _overrides, key, innerAncestorIds) => {
@@ -634,7 +623,6 @@ const LayerItem: React.FC<{
       isPreview,
       locale: currentLocale,
       pageLocalizedPaths,
-      translations: linkTranslations,
       getAsset,
       anchorMap,
       resolvedAssets,
@@ -817,7 +805,6 @@ const LayerItem: React.FC<{
     isPreview,
     locale: currentLocale,
     pageLocalizedPaths,
-    translations: linkTranslations,
     getAsset,
     anchorMap,
     resolvedAssets,
@@ -1335,7 +1322,6 @@ const LayerItem: React.FC<{
                 isPreview,
                 locale: currentLocale,
                 pageLocalizedPaths,
-                translations: linkTranslations,
                 getAsset,
                 anchorMap,
                 resolvedAssets,
@@ -1674,7 +1660,6 @@ const LayerItem: React.FC<{
               collectionItemSlugs={collectionItemSlugs}
               isPreview={isPreview}
               pageLocalizedPaths={pageLocalizedPaths}
-              linkTranslations={linkTranslations}
               anchorMap={anchorMap}
               resolvedAssets={resolvedAssets}
               hiddenLayerInfo={hiddenLayerInfo}
