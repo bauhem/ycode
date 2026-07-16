@@ -221,8 +221,8 @@ export default function RedirectsSettingsPage() {
             </div>
           ) : redirects.length > 0 ? (
             <div className="border-t -mb-4 divide-y">
-              {redirects.map((redirect) => (
-                <div key={redirect.id} className="py-4 flex">
+              {redirects.map((redirect, i) => (
+                <div key={redirect.id || `redirect-${i}`} className="py-4 flex">
                   <div className="flex-1 flex items-center gap-4">
                     <span className="flex-1 text-xs text-muted-foreground select-text break-all">
                       {redirect.oldUrl}

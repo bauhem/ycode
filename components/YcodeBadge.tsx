@@ -4,7 +4,7 @@
 export default function YcodeBadge() {
   return (
     <a
-      href="https://ycode.com"
+      href="https://www.ycode.com/"
       target="_blank"
       rel="noopener noreferrer"
       aria-label="This website was built using Ycode."

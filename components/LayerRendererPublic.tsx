@@ -21,7 +21,6 @@ import { getMapIframeProps, DEFAULT_MAP_SETTINGS, resolveMarkerColor } from '@/l
 import { HTML_TO_REACT_ATTRS } from '@/lib/parse-head-html';
 import { SWIPER_CLASS_MAP, SWIPER_DATA_ATTR_MAP } from '@/lib/slider-constants';
 import { getDynamicTextContent, getImageUrlFromVariable, getVideoUrlFromVariable, getIframeUrlFromVariable, isFieldVariable, isAssetVariable, isStaticTextVariable, isDynamicTextVariable, getStaticTextContent, getAssetId, resolveDesignStyles } from '@/lib/variable-utils';
-import { getTranslatedAssetId, getTranslatedText } from '@/lib/locale-runtime';
 import { isValidLinkSettings, generateLinkHref, resolveLinkAttrs, isLinkAtCollectionBoundary, isLinkToCurrentPage, type LinkResolutionContext } from '@/lib/link-utils';
 import { DEFAULT_ASSETS, buildImageSizes, generateImageSrcset, getOptimizedImageUrl, getSvgAspectRatioStyle, parseImageDimension } from '@/lib/asset-utils';
 import { resolveInlineVariablesFromData } from '@/lib/inline-variables';
@@ -109,7 +108,12 @@ interface LayerRendererPublicProps {
   folders?: any[];
   collectionItemSlugs?: Record<string, string>;
   isPreview?: boolean;
-  translations?: Record<string, any> | null;
+  /**
+   * Pre-computed localized URL paths keyed by pageId → localeCode → path.
+   * Replaces the full translations map for client-side link resolution.
+   * Dynamic-page paths include the `{slug}` placeholder.
+   */
+  pageLocalizedPaths?: Record<string, Record<string, string>>;
   anchorMap?: Record<string, string>;
   resolvedAssets?: Record<string, { url: string; width?: number | null; height?: number | null }>;
   components?: Component[];
@@ -156,7 +160,7 @@ const LayerRendererPublic: React.FC<LayerRendererPublicProps> = ({
   pages = [],
   folders = [],
   isPreview = false,
-  translations,
+  pageLocalizedPaths,
   anchorMap: anchorMapProp,
   resolvedAssets,
   components: componentsProp,
@@ -274,7 +278,6 @@ const LayerRendererPublic: React.FC<LayerRendererPublicProps> = ({
         folders={folders}
         collectionItemSlugs={collectionItemSlugs}
         isPreview={isPreview}
-        translations={translations}
         anchorMap={anchorMap}
         resolvedAssets={resolvedAssets}
         components={componentsProp}
@@ -319,7 +322,7 @@ const LayerItem: React.FC<{
   folders?: any[];
   collectionItemSlugs?: Record<string, string>;
   isPreview?: boolean;
-  translations?: Record<string, any> | null;
+  pageLocalizedPaths?: Record<string, Record<string, string>>;
   anchorMap?: Record<string, string>;
   resolvedAssets?: Record<string, { url: string; width?: number | null; height?: number | null }>;
   components?: Component[];
@@ -352,7 +355,7 @@ const LayerItem: React.FC<{
   folders,
   collectionItemSlugs,
   isPreview,
-  translations,
+  pageLocalizedPaths,
   anchorMap,
   resolvedAssets,
   components: componentsProp,
@@ -421,7 +424,7 @@ const LayerItem: React.FC<{
     folders,
     collectionItemSlugs,
     isPreview,
-    translations,
+    pageLocalizedPaths,
     anchorMap,
     resolvedAssets,
     components: componentsProp,
@@ -430,7 +433,7 @@ const LayerItem: React.FC<{
     globalsMeta,
     lcpCandidateLayerId,
     passwordProtection,
-  }), [isPublished, pageId, collectionLayerData, collectionLayerItemId, effectiveLayerDataMap, pageCollectionItemId, pageCollectionItemData, pageCollectionSortedItemIds, hiddenLayerInfo, currentLocale, availableLocales, localeSelectorFormat, localizedPageUrls, isInsideForm, isInsideLink, parentFormSettings, pages, folders, collectionItemSlugs, isPreview, translations, anchorMap, resolvedAssets, componentsProp, serverSettings, globalsData, globalsMeta, lcpCandidateLayerId, passwordProtection]);
+  }), [isPublished, pageId, collectionLayerData, collectionLayerItemId, effectiveLayerDataMap, pageCollectionItemId, pageCollectionItemData, pageCollectionSortedItemIds, hiddenLayerInfo, currentLocale, availableLocales, localeSelectorFormat, localizedPageUrls, isInsideForm, isInsideLink, parentFormSettings, pages, folders, collectionItemSlugs, isPreview, pageLocalizedPaths, anchorMap, resolvedAssets, componentsProp, serverSettings, globalsData, globalsMeta, lcpCandidateLayerId, passwordProtection]);
 
   const renderComponentBlock: RenderComponentBlockFn = useCallback(
     (comp, resolvedLayers, _overrides, key, innerAncestorIds) => {
@@ -618,7 +621,7 @@ const LayerItem: React.FC<{
       pageCollectionItemId,
       isPreview,
       locale: currentLocale,
-      translations,
+      pageLocalizedPaths,
       getAsset,
       anchorMap,
       resolvedAssets,
@@ -658,23 +661,11 @@ const LayerItem: React.FC<{
 
   // Public path: component variable overrides are pre-baked server-side via
   // resolveComponents → applyComponentOverrides. We just use the layer's settings.
+  // Translations (image src/alt, video/audio sources, icon) are pre-applied
+  // by injectTranslatedText server-side — no client-side translation lookup needed.
   const effectiveImageSettings = layer.variables?.image;
 
-  const originalImageAssetId = effectiveImageSettings?.src?.type === 'asset'
-    ? effectiveImageSettings.src.data?.asset_id
-    : undefined;
-  const translatedImageAssetId = getTranslatedAssetId(
-    originalImageAssetId || undefined,
-    `layer:${layer.id}:image_src`,
-    translations,
-    pageId,
-    layer._masterComponentId
-  );
-
-  // Build image variable with translated asset ID
-  const imageVariable = originalImageAssetId && translatedImageAssetId && translatedImageAssetId !== originalImageAssetId
-    ? { ...effectiveImageSettings?.src, type: 'asset' as const, data: { asset_id: translatedImageAssetId } }
-    : effectiveImageSettings?.src;
+  const imageVariable = effectiveImageSettings?.src;
 
   const imageUrl = getImageUrlFromVariable(
     imageVariable,
@@ -690,17 +681,9 @@ const LayerItem: React.FC<{
   const rawImageAlt = typeof rawImageAltContent === 'object' && rawImageAltContent !== null
     ? (extractPlainTextFromTiptap(rawImageAltContent) || 'Image')
     : String(rawImageAltContent || 'Image');
-  const originalImageAlt = rawImageAlt.includes('<ycode-inline-variable>')
+  const imageAlt = rawImageAlt.includes('<ycode-inline-variable>')
     ? resolveInlineVariablesFromData(rawImageAlt, collectionLayerData, pageCollectionItemData ?? undefined, timezone, effectiveLayerDataMap)
     : rawImageAlt;
-  const translatedImageAlt = getTranslatedText(
-    originalImageAlt,
-    `layer:${layer.id}:image_alt`,
-    translations,
-    pageId,
-    layer._masterComponentId
-  ) || 'Image';
-  const imageAlt = translatedImageAlt;
 
   // Public path: audio/video/icon component variable overrides are pre-baked
   // server-side. Use the layer's variables directly.
@@ -820,7 +803,7 @@ const LayerItem: React.FC<{
     pageCollectionItemData: pageCollectionItemData || undefined,
     isPreview,
     locale: currentLocale,
-    translations,
+    pageLocalizedPaths,
     getAsset,
     anchorMap,
     resolvedAssets,
@@ -1337,7 +1320,7 @@ const LayerItem: React.FC<{
                 collectionItemSlugs,
                 isPreview,
                 locale: currentLocale,
-                translations,
+                pageLocalizedPaths,
                 getAsset,
                 anchorMap,
                 resolvedAssets,
@@ -1381,18 +1364,8 @@ const LayerItem: React.FC<{
         } else if (isDynamicTextVariable(iconSrc)) {
           iconHtml = getDynamicTextContent(iconSrc);
         } else if (isAssetVariable(iconSrc)) {
-          const originalAssetId = iconSrc.data?.asset_id;
-          if (originalAssetId) {
-            // Apply translation if available
-            const translatedAssetId = getTranslatedAssetId(
-              originalAssetId,
-              `layer:${layer.id}:icon_src`,
-              translations,
-              pageId,
-              layer._masterComponentId
-            );
-            const assetId = translatedAssetId || originalAssetId;
-
+          const assetId = iconSrc.data?.asset_id;
+          if (assetId) {
             const asset = getAsset(assetId);
             iconHtml = asset?.content || '';
           }
@@ -1565,24 +1538,8 @@ const LayerItem: React.FC<{
             return undefined;
           }
 
-          // Apply translation for video asset
-          let videoVariable = src;
-          if (src.type === 'asset' && src.data?.asset_id) {
-            const originalAssetId = src.data.asset_id;
-            const translatedAssetId = getTranslatedAssetId(
-              originalAssetId,
-              `layer:${layer.id}:video_src`,
-              translations,
-              pageId,
-              layer._masterComponentId
-            );
-            if (translatedAssetId && translatedAssetId !== originalAssetId) {
-              videoVariable = { ...src, data: { asset_id: translatedAssetId } };
-            }
-          }
-
           return getVideoUrlFromVariable(
-            videoVariable,
+            src,
             getAsset,
             collectionLayerData,
             pageCollectionItemData
@@ -1591,24 +1548,8 @@ const LayerItem: React.FC<{
         if (htmlTag === 'audio' && effectiveLayer.variables?.audio?.src) {
           const src = effectiveLayer.variables.audio.src;
 
-          // Apply translation for audio asset
-          let audioVariable = src;
-          if (src.type === 'asset' && src.data?.asset_id) {
-            const originalAssetId = src.data.asset_id;
-            const translatedAssetId = getTranslatedAssetId(
-              originalAssetId,
-              `layer:${layer.id}:audio_src`,
-              translations,
-              pageId,
-              layer._masterComponentId
-            );
-            if (translatedAssetId && translatedAssetId !== originalAssetId) {
-              audioVariable = { ...src, data: { asset_id: translatedAssetId } };
-            }
-          }
-
           return getVideoUrlFromVariable(
-            audioVariable,
+            src,
             getAsset,
             collectionLayerData,
             pageCollectionItemData
@@ -1620,24 +1561,8 @@ const LayerItem: React.FC<{
       // Get poster URL for video elements
       const posterUrl = (() => {
         if (htmlTag === 'video' && effectiveLayer.variables?.video?.poster) {
-          // Apply translation for video poster
-          let posterVariable = effectiveLayer.variables.video.poster;
-          if (posterVariable?.type === 'asset' && posterVariable.data?.asset_id) {
-            const originalAssetId = posterVariable.data.asset_id;
-            const translatedAssetId = getTranslatedAssetId(
-              originalAssetId,
-              `layer:${layer.id}:video_poster`,
-              translations,
-              pageId,
-              layer._masterComponentId
-            );
-            if (translatedAssetId && translatedAssetId !== originalAssetId) {
-              posterVariable = { ...posterVariable, data: { asset_id: translatedAssetId } };
-            }
-          }
-
           return getImageUrlFromVariable(
-            posterVariable,
+            effectiveLayer.variables.video.poster,
             getAsset,
             collectionLayerData,
             pageCollectionItemData
@@ -1733,7 +1658,6 @@ const LayerItem: React.FC<{
               folders={folders}
               collectionItemSlugs={collectionItemSlugs}
               isPreview={isPreview}
-              translations={translations}
               anchorMap={anchorMap}
               resolvedAssets={resolvedAssets}
               hiddenLayerInfo={hiddenLayerInfo}

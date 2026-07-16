@@ -37,6 +37,13 @@ export async function GET(
       );
     }
 
+    // Ensure redirects always have unique IDs (legacy data may lack them)
+    if (key === 'redirects' && Array.isArray(value)) {
+      value.forEach((r: any, i: number) => {
+        if (!r.id) r.id = `redirect-${Date.now()}-${i}`;
+      });
+    }
+
     return NextResponse.json({ data: value });
   } catch (error) {
     console.error('[API] Error fetching setting:', error);

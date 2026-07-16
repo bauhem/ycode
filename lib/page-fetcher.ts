@@ -334,6 +334,18 @@ interface TranslationLoadContext {
 
 const translationLoadContexts = new WeakMap<object, TranslationLoadContext>();
 
+function getFieldTranslationContentKeys(field: CollectionField): string[] {
+  const semanticKey = field.key
+    ? `field:key:${field.key}`
+    : `field:id:${field.id}`;
+
+  return field.id === semanticKey ? [semanticKey] : [field.id, semanticKey];
+}
+
+function translationKeyMatchesContentKey(translationKey: string, contentKey: string): boolean {
+  return translationKey.endsWith(`:${contentKey}`);
+}
+
 /** Associate a freshly-built scaffold map with its locale loading context. */
 function registerTranslationContext(
   translations: Record<string, Translation>,
@@ -442,15 +454,15 @@ async function getCollectionItemBySlug(
       const slugField = collectionFields.find(f => f.id === slugFieldId);
 
       if (slugField) {
-        // Build content_key for the slug field
-        const contentKey = slugField.key
-          ? `field:key:${slugField.key}`
-          : `field:id:${slugField.id}`;
+        const contentKeys = getFieldTranslationContentKeys(slugField);
 
         // Search through translations to find which item has this translated slug
         for (const [translationKey, translation] of Object.entries(translations)) {
           // Translation key format: cms:{itemId}:{contentKey}
-          if (translation.content_value === slugValue && translationKey.endsWith(contentKey)) {
+          if (
+            translation.content_value === slugValue
+            && contentKeys.some(contentKey => translationKeyMatchesContentKey(translationKey, contentKey))
+          ) {
             // Extract item ID from translation key
             const itemId = translation.source_id;
 
@@ -497,11 +509,12 @@ async function getCollectionItemBySlug(
     if (!itemId && translations && collectionFields && (!locale || locale.is_default)) {
       const slugField = collectionFields.find(f => f.id === slugFieldId);
       if (slugField) {
-        const contentKey = slugField.key
-          ? `field:key:${slugField.key}`
-          : `field:id:${slugField.id}`;
+        const contentKeys = getFieldTranslationContentKeys(slugField);
         for (const [translationKey, translation] of Object.entries(translations)) {
-          if (translation.content_value === slugValue && translationKey.endsWith(contentKey)) {
+          if (
+            translation.content_value === slugValue
+            && contentKeys.some(contentKey => translationKeyMatchesContentKey(translationKey, contentKey))
+          ) {
             itemId = translation.source_id;
             break;
           }

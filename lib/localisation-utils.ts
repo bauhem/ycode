@@ -1082,6 +1082,17 @@ export function injectTranslatedText(
       }
     }
 
+    if (layer.name === 'icon') {
+      const iconSrcKey = buildLayerTranslationKey(pageId, `layer:${translationLayerId}:icon_src`, masterComponentId);
+      const iconSrcTranslation = getTranslationByKey(translations, iconSrcKey);
+
+      if (iconSrcTranslation && iconSrcTranslation.content_value) {
+        (variableUpdates as any).icon = {
+          src: createAssetVariable(iconSrcTranslation.content_value),
+        };
+      }
+    }
+
     if (Object.keys(variableUpdates).length > 0) {
       updates.variables = {
         ...layer.variables,

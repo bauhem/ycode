@@ -26,7 +26,7 @@ import { REF_PAGE_PREFIX, REF_COLLECTION_PREFIX, isCollectionItemKeyword, parseC
 import { getSupabaseAdmin } from '@/lib/supabase-server';
 import { getClassesString, hasPasswordFormLayer } from '@/lib/layer-utils';
 import { buildGlobalsMetaMap, buildGlobalsValueMap } from '@/lib/collection-field-utils';
-import { buildLocalizedPageUrls, type LocalizedDynamicSlug } from '@/lib/page-utils';
+import { buildSlugPath, buildLocalizedSlugPath, type LocalizedDynamicSlug } from '@/lib/page-utils';
 import { getTranslatableKey } from '@/lib/locale-runtime';
 import { getSlugTranslationsByLocale } from '@/lib/repositories/translationRepository';
 import type { Layer, BackgroundsDesign, Component, Page, CollectionItemWithValues, CollectionField, Locale, PageFolder, PasswordProtectionContext, Translation } from '@/types';
@@ -42,73 +42,6 @@ const getCachedPublishedPages = unstable_cache(
 const getCachedPublishedFolders = unstable_cache(
   async () => getAllPageFolders({ is_published: true }),
   ['page-renderer-published-folders'],
-  { tags: ['all-pages'], revalidate: false }
-);
-
-/** Cached fetch of ALL published translations (all locales). Used only for
- * computing the localizedPageUrls map for the language switcher. Grouped by
- * locale_id → translatableKey → Translation. */
-const getCachedAllPublishedTranslationsByLocale = unstable_cache(
-  async (): Promise<Record<string, Record<string, Translation>>> => {
-    const supabase = await getSupabaseAdmin();
-    if (!supabase) return {};
-
-    // Paginate to avoid the default 1000-row PostgREST cap.
-    const PAGE_SIZE = 1000;
-    const rows: Translation[] = [];
-    for (let from = 0; ; from += PAGE_SIZE) {
-      const { data, error } = await supabase
-        .from('translations')
-        .select('*')
-        .eq('is_published', true)
-        .is('deleted_at', null)
-        .range(from, from + PAGE_SIZE - 1);
-
-      if (error || !data || data.length === 0) break;
-      rows.push(...(data as Translation[]));
-      if (data.length < PAGE_SIZE) break;
-    }
-
-    const byLocale: Record<string, Record<string, Translation>> = {};
-    for (const t of rows) {
-      if (!byLocale[t.locale_id]) byLocale[t.locale_id] = {};
-      byLocale[t.locale_id][getTranslatableKey(t)] = t;
-    }
-    return byLocale;
-  },
-  ['page-renderer-all-translations-published'],
-  { tags: ['all-pages'], revalidate: false }
-);
-
-/** Cached fetch of ALL draft translations (all locales). */
-const getCachedAllDraftTranslationsByLocale = unstable_cache(
-  async (): Promise<Record<string, Record<string, Translation>>> => {
-    const supabase = await getSupabaseAdmin();
-    if (!supabase) return {};
-
-    const PAGE_SIZE = 1000;
-    const rows: Translation[] = [];
-    for (let from = 0; ; from += PAGE_SIZE) {
-      const { data, error } = await supabase
-        .from('translations')
-        .select('*')
-        .eq('is_published', false)
-        .is('deleted_at', null)
-        .range(from, from + PAGE_SIZE - 1);
-
-      if (error || !data || data.length === 0) break;
-      rows.push(...(data as Translation[]));
-      if (data.length < PAGE_SIZE) break;
-    }
-
-    const byLocale: Record<string, Record<string, Translation>> = {};
-    for (const t of rows) {
-      if (!byLocale[t.locale_id]) byLocale[t.locale_id] = {};
-      byLocale[t.locale_id][getTranslatableKey(t)] = t;
-    }
-    return byLocale;
-  },
-  ['page-renderer-all-translations-draft'],
   { tags: ['all-pages'], revalidate: false }
 );
 
@@ -600,27 +533,26 @@ export default async function PageRenderer({
     }
   }
 
-  // Pre-compute localized URLs for the locale selector so switching language
-  // preserves translated folder/page/CMS slugs instead of reusing the source slug.
-  // Only runs on multi-locale pages that actually render a locale selector.
+  // Pre-compute localized page paths for link resolution so the full
+  // translations map is never serialized into the client RSC payload.
+  // On multi-locale sites this replaces the heavyweight `translations` prop
+  // with a compact `pageId → localeCode → path` map.
+  // The locale switcher's `localizedPageUrls` is derived from the same data.
+  let pageLocalizedPaths: Record<string, Record<string, string>> | undefined;
   let localizedPageUrls: Record<string, string> | undefined;
-  if (
-    availableLocales.length > 1 &&
-    layerTreeHasLayer(resolvedLayers, l => l.name === 'localeSelector')
-  ) {
+  if (availableLocales.length > 1) {
+    const hasLocaleSelector = layerTreeHasLayer(resolvedLayers, l => l.name === 'localeSelector');
+
     try {
       const translationsByLocale: Record<string, Record<string, Translation>> = {};
       await Promise.all(
         availableLocales
           .filter(l => !l.is_default)
           .map(async (l) => {
-            // Reuse already-loaded translations for the current locale
             if (locale && l.id === locale.id && translations) {
               translationsByLocale[l.id] = translations as Record<string, Translation>;
               return;
             }
-            // Only slug rows are needed to build localized URLs for the locale
-            // switcher — avoid loading the full CMS-content catalogue per locale.
             const rows = await getSlugTranslationsByLocale(l.id, usePublishedData);
             const map: Record<string, Translation> = {};
             for (const t of rows) {
@@ -630,28 +562,59 @@ export default async function PageRenderer({
           })
       );
 
-      // Dynamic pages need the translated CMS item slug per locale
-      let dynamicSlug: LocalizedDynamicSlug | null = null;
-      if (page.is_dynamic && collectionItem) {
-        const slugField = collectionFields.find(f => f.key === 'slug');
-        if (slugField) {
-          // collectionItem.values are already translated for the current locale,
-          // so fetch the raw (default-locale) slug to use as the default + fallback.
-          const rawValues = await getValuesByItemIds([collectionItem.id], usePublishedData, undefined, [slugField.id]);
-          const sourceSlug = rawValues[collectionItem.id]?.[slugField.id];
-          if (sourceSlug) {
-            dynamicSlug = {
-              itemId: collectionItem.id,
-              contentKey: slugField.key ? `field:key:${slugField.key}` : `field:id:${slugField.id}`,
-              defaultValue: String(sourceSlug),
-            };
+      pageLocalizedPaths = {};
+      for (const p of pages) {
+        pageLocalizedPaths[p.id] = {};
+        for (const l of availableLocales) {
+          if (l.is_default) {
+            pageLocalizedPaths[p.id][l.code] = buildSlugPath(p, folders, 'page');
+          } else {
+            const localeTrans = translationsByLocale[l.id];
+            pageLocalizedPaths[p.id][l.code] = localeTrans
+              ? buildLocalizedSlugPath(p, folders, 'page', l, localeTrans)
+              : buildSlugPath(p, folders, 'page');
           }
         }
       }
 
-      localizedPageUrls = buildLocalizedPageUrls(page, folders, availableLocales, translationsByLocale, dynamicSlug);
+      if (hasLocaleSelector) {
+        localizedPageUrls = {};
+        for (const l of availableLocales) {
+          localizedPageUrls[l.id] = pageLocalizedPaths[page.id]?.[l.code] || `/${l.code}`;
+        }
+
+        // Dynamic pages need the translated CMS item slug per locale
+        if (page.is_dynamic && collectionItem) {
+          const slugField = collectionFields.find(f => f.key === 'slug');
+          if (slugField) {
+            const rawValues = await getValuesByItemIds([collectionItem.id], usePublishedData, undefined, [slugField.id]);
+            const sourceSlug = rawValues[collectionItem.id]?.[slugField.id];
+            if (sourceSlug) {
+              const dynamicSlug: LocalizedDynamicSlug = {
+                itemId: collectionItem.id,
+                contentKey: slugField.key ? `field:key:${slugField.key}` : `field:id:${slugField.id}`,
+                defaultValue: String(sourceSlug),
+              };
+              for (const l of availableLocales) {
+                if (l.is_default) continue;
+                const translated = translationsByLocale[l.id]?.[
+                  getTranslatableKey({
+                    source_type: 'cms',
+                    source_id: dynamicSlug.itemId,
+                    content_key: dynamicSlug.contentKey,
+                  } as Translation)
+                ]?.content_value || dynamicSlug.defaultValue;
+                const pagePath = pageLocalizedPaths[page.id]?.[l.code];
+                if (pagePath) {
+                  localizedPageUrls[l.id] = pagePath.replace(/\{slug\}/g, translated);
+                }
+              }
+            }
+          }
+        }
+      }
     } catch (error) {
-      console.error('[PageRenderer] Error building localized page URLs:', error);
+      console.error('[PageRenderer] Error building localized page paths:', error);
     }
   }
 
@@ -978,7 +941,7 @@ export default async function PageRenderer({
           folders={folders as any}
           collectionItemSlugs={collectionItemSlugs}
           isPreview={isPreview}
-          translations={translations}
+          pageLocalizedPaths={pageLocalizedPaths}
           resolvedAssets={resolvedAssets}
           components={components}
           serverSettings={serverSettings}

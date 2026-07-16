@@ -9,7 +9,7 @@ import type {
   CollectionFieldType,
   Translation,
 } from '@/types';
-import { buildLocalizedSlugPath, buildLocalizedDynamicPageUrl } from '@/lib/page-utils';
+import { buildSlugPath, buildLocalizedSlugPath, buildLocalizedDynamicPageUrl } from '@/lib/page-utils';
 import { isAssetFieldType, isVirtualAssetField } from '@/lib/collection-field-utils';
 import { resolveInlineVariablesFromData } from '@/lib/inline-variables';
 
@@ -231,6 +231,29 @@ function getLocalizedCollectionSlug(
   return translatedSlug || defaultSlug;
 }
 
+function resolvePagePath(
+  page: Page,
+  folders: PageFolder[] | undefined,
+  locale: Locale | null | undefined,
+  pageLocalizedPaths?: Record<string, Record<string, string>>,
+  translations?: Record<string, any> | null
+): string {
+  if (pageLocalizedPaths && locale?.code) {
+    const cached = pageLocalizedPaths[page.id]?.[locale.code];
+    if (cached) return cached;
+  }
+  if (pageLocalizedPaths) {
+    const fallbacks = pageLocalizedPaths[page.id];
+    if (fallbacks) {
+      return Object.values(fallbacks)[0] || buildSlugPath(page, folders || [], 'page');
+    }
+  }
+  if (translations && locale && !locale.is_default) {
+    return buildLocalizedSlugPath(page, folders || [], 'page', locale, translations);
+  }
+  return buildSlugPath(page, folders || [], 'page');
+}
+
 /** Returns true when the value is one of the known dynamic-resolution keywords. */
 export function isCollectionItemKeyword(value: string | null | undefined): value is CollectionItemKeyword {
   return !!value && KEYWORD_VALUES.has(value);
@@ -293,6 +316,13 @@ export interface LinkResolutionContext {
    * for any render whose root is a dynamic collection page.
    */
   pageCollectionSortedItemIds?: string[];
+  /**
+   * Pre-computed localized URL paths for every page, keyed by pageId → localeCode → path.
+   * When available, `generateLinkHref` uses these instead of building paths from
+   * translations at runtime, avoiding serialization of the full translations map.
+   * Dynamic-page paths include the `{slug}` placeholder.
+   */
+  pageLocalizedPaths?: Record<string, Record<string, string>>;
 }
 
 /**
@@ -442,7 +472,7 @@ export function resolveCollectionLinkValue(
   linkValue: CollectionLinkValue,
   context: LinkResolutionContext
 ): string | null {
-  const { pages, folders, collectionItemSlugs, isPreview, locale, translations, getAsset, resolvedAssets } = context;
+  const { pages, folders, collectionItemSlugs, isPreview, locale, translations, getAsset, resolvedAssets, pageLocalizedPaths } = context;
 
   if (linkValue.type === 'url') {
     return linkValue.url || null;
@@ -487,9 +517,10 @@ export function resolveCollectionLinkValue(
         translations
       );
       if (!itemSlug) return null;
-      href = buildLocalizedDynamicPageUrl(page, folders, itemSlug, locale, translations || undefined);
+      const basePath = resolvePagePath(page, folders, locale, pageLocalizedPaths, translations);
+      href = basePath.replace(/\{slug\}/g, itemSlug);
     } else {
-      href = buildLocalizedSlugPath(page, folders, 'page', locale, translations || undefined);
+      href = resolvePagePath(page, folders, locale, pageLocalizedPaths, translations);
     }
 
     // Prefix with /ycode/preview in preview mode
@@ -532,6 +563,7 @@ export function generateLinkHref(
     getAsset,
     anchorMap,
     pageCollectionSortedItemIds,
+    pageLocalizedPaths,
   } = context;
 
   let href = '';
@@ -618,11 +650,11 @@ export function generateLinkHref(
             }
 
             if (itemSlug) {
-              href = buildLocalizedDynamicPageUrl(page, folders, itemSlug, locale, translations || undefined);
+              const basePath = resolvePagePath(page, folders, locale, pageLocalizedPaths, translations);
+              href = basePath.replace(/\{slug\}/g, itemSlug);
             }
           } else {
-            // Static page or dynamic page without specific item
-            href = buildLocalizedSlugPath(page, folders, 'page', locale, translations || undefined);
+            href = resolvePagePath(page, folders, locale, pageLocalizedPaths, translations);
           }
 
           // Prefix with /ycode/preview in preview mode
