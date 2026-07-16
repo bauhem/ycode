@@ -240,6 +240,14 @@ function ensureLengthUnit(value: string): string {
 }
 
 /**
+ * Normalizes a grid span value to a bare Tailwind suffix.
+ * Accepts CSS-native shorthand ("span 3") as well as bare values ("3", "full", "auto").
+ */
+function normalizeGridSpanValue(value: string): string {
+  return value.replace(/^span\s+/i, '').trim();
+}
+
+/**
  * Map of Tailwind class prefixes to their property names
  * Used for conflict detection and removal
  */
@@ -911,14 +919,14 @@ export function propertyToClass(
 
     // Grid Column Span (value can be "3" or "span 3" — strip CSS "span " prefix)
     if (property === 'gridColumnSpan') {
-      const clean = value.replace(/^span\s+/i, '');
-      return clean === 'full' ? 'col-span-full' : `col-span-${clean}`;
+      const span = normalizeGridSpanValue(value);
+      return span === 'full' ? 'col-span-full' : `col-span-${span}`;
     }
 
     // Grid Row Span (same: value can be "3" or "span 3")
     if (property === 'gridRowSpan') {
-      const clean = value.replace(/^span\s+/i, '');
-      return clean === 'full' ? 'row-span-full' : `row-span-${clean}`;
+      const span = normalizeGridSpanValue(value);
+      return span === 'full' ? 'row-span-full' : `row-span-${span}`;
     }
   }
 
