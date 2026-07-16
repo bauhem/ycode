@@ -564,17 +564,23 @@ export default async function PageRenderer({
 
       pageLocalizedPaths = {};
       for (const p of pages) {
-        pageLocalizedPaths[p.id] = {};
+        const paths: Record<string, string> = {};
         for (const l of availableLocales) {
-          if (l.is_default) {
-            pageLocalizedPaths[p.id][l.code] = buildSlugPath(p, folders, 'page');
-          } else {
-            const localeTrans = translationsByLocale[l.id];
-            pageLocalizedPaths[p.id][l.code] = localeTrans
-              ? buildLocalizedSlugPath(p, folders, 'page', l, localeTrans)
-              : buildSlugPath(p, folders, 'page');
+          try {
+            if (l.is_default) {
+              paths[l.code] = buildSlugPath(p, folders, 'page');
+            } else {
+              const localeTrans = translationsByLocale[l.id];
+              paths[l.code] = localeTrans
+                ? buildLocalizedSlugPath(p, folders, 'page', l, localeTrans)
+                : buildSlugPath(p, folders, 'page');
+            }
+          } catch {
+            const path = buildSlugPath(p, folders, 'page');
+            paths[l.code] = l.is_default ? path : `/${l.code}${path}`;
           }
         }
+        pageLocalizedPaths[p.id] = paths;
       }
 
       if (hasLocaleSelector) {
@@ -942,6 +948,7 @@ export default async function PageRenderer({
           collectionItemSlugs={collectionItemSlugs}
           isPreview={isPreview}
           pageLocalizedPaths={pageLocalizedPaths}
+          linkTranslations={translations}
           resolvedAssets={resolvedAssets}
           components={components}
           serverSettings={serverSettings}

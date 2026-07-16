@@ -242,12 +242,6 @@ function resolvePagePath(
     const cached = pageLocalizedPaths[page.id]?.[locale.code];
     if (cached) return cached;
   }
-  if (pageLocalizedPaths) {
-    const fallbacks = pageLocalizedPaths[page.id];
-    if (fallbacks) {
-      return Object.values(fallbacks)[0] || buildSlugPath(page, folders || [], 'page');
-    }
-  }
   if (translations && locale && !locale.is_default) {
     return buildLocalizedSlugPath(page, folders || [], 'page', locale, translations);
   }
