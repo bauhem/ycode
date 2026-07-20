@@ -22,6 +22,13 @@ async function savePageLayers(pageId: string, layers: Layer[]): Promise<void> {
   await saveCachedLayers(pageId, layers);
 }
 
+function createFormRedirectLink(redirectUrl: string): LinkSettings {
+  return {
+    type: 'url',
+    url: { type: 'dynamic_text', data: { content: redirectUrl } },
+  };
+}
+
 export function registerLayerTools(server: McpServer) {
   server.tool(
     'get_layers',
@@ -667,7 +674,7 @@ redirect_url: used when success_action is "redirect". Accepts an internal path "
         if (success_action !== undefined) nextForm.success_action = success_action;
         if (email_notification !== undefined) nextForm.email_notification = email_notification;
         if (redirect_url !== undefined) {
-          nextForm.redirect_url = { type: 'dynamic_text', data: { content: redirect_url } };
+          nextForm.redirect_url = createFormRedirectLink(redirect_url);
         }
         settings.form = nextForm as typeof settings.form;
         return { ...l, settings };
